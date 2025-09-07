@@ -1,56 +1,36 @@
 import { useEffect, useState } from "react";
-import { useLeave } from "../hooks/use-leave";
+import { useLeave, type LeaveType } from "../hooks/use-leave";
 import LeaveCard from "../components/leave-card";
 import LeaveModal from "../components/leave-model";
 import Calendar from "../components/calendar";
-import { useOutletContext } from "react-router";
 import type { OutletContextType } from "@/layouts/main-layout";
-
-interface LeaveType {
-  id: number;
-  date: string;
-  status: "pending" | "approved" | "rejected";
-}
-
-interface LeaveSummary {
-  total: number;
-  available: number;
-}
-
-interface Leaves {
-  annualLeave: LeaveSummary;
-  casualSickLeave: LeaveSummary;
-  leaves: LeaveType[];
-}
+import { useOutletContext } from "react-router";
 
 const CalendarLeave: React.FC = () => {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
 
   const [isModalOpen, setModalOpen] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const { leaves, applyLeave } = useLeave() as {
-    leaves: Leaves;
-    applyLeave: (date: string, type: "annual" | "sick") => void;
-  };
+
+  const { leaves, applyLeave } = useLeave();
 
   const handleDayClick = (date: Date) => {
     setSelectedDate(date);
     setModalOpen(true);
   };
 
-  const handleApplyLeave = (date: Date | null, type: "annual" | "sick") => {
+  const handleApplyLeave = (date: Date | null, type: LeaveType) => {
     if (!date) return;
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = date.toISOString().split("T")[0]; // YYYY-MM-DD
     applyLeave(dateStr, type);
   };
 
   useEffect(() => {
     setBreadcrumb(["Calendar"]);
-  }, []);
+  }, [setBreadcrumb]);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* <Navbar /> */}
       <div className="container mx-auto p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <LeaveCard

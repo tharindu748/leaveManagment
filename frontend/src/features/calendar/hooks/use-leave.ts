@@ -17,7 +17,7 @@ export interface Leave {
 // Leave summary
 export interface LeaveSummary {
   total: number;
-  available: number;
+  available: number; // remaining days not pending or used
   pending: number;
   used: number;
 }
@@ -29,7 +29,7 @@ export interface LeavesData {
   leaves: Leave[];
 }
 
-const leavesData: LeavesData = {
+const initialData: LeavesData = {
   annualLeave: { total: 14, available: 12, pending: 2, used: 0 },
   casualSickLeave: { total: 7, available: 4, pending: 1, used: 2 },
   leaves: [
@@ -40,7 +40,7 @@ const leavesData: LeavesData = {
 };
 
 export function useLeave() {
-  const [leaves, setLeaves] = useState<LeavesData>(leavesData);
+  const [leaves, setLeaves] = useState<LeavesData>(initialData);
 
   const applyLeave = (date: string, type: LeaveType): Leave => {
     const newLeave: Leave = {
@@ -50,10 +50,21 @@ export function useLeave() {
       status: "pending",
     };
 
-    setLeaves((prev) => ({
-      ...prev,
-      leaves: [...prev.leaves, newLeave],
-    }));
+    setLeaves((prev) => {
+      const key = type === "annual" ? "annualLeave" : "casualSickLeave";
+      const summary = { ...prev[key] };
+
+      if (summary.available > 0) {
+        summary.available -= 1;
+        summary.pending += 1;
+      }
+
+      return {
+        ...prev,
+        [key]: summary,
+        leaves: [...prev.leaves, newLeave],
+      };
+    });
 
     return newLeave;
   };
