@@ -1,5 +1,6 @@
+// /calendar/components/calendar.tsx
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar1, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Leave } from "../hooks/use-leave";
 
@@ -11,6 +12,13 @@ interface CalendarProps {
 
 const WEEKDAYS_MON_FIRST = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// map status -> subtle background class
+const statusBg: Record<"pending" | "approved" | "rejected", string> = {
+  pending: "bg-amber-100",
+  approved: "bg-emerald-100",
+  rejected: "bg-rose-100",
+};
+
 const Calendar = ({ onDayClick, leaves }: CalendarProps) => {
   const today = new Date();
   // Start on the first of the current month for stability
@@ -21,25 +29,36 @@ const Calendar = ({ onDayClick, leaves }: CalendarProps) => {
   const month = currentDate.getMonth();
   const year = currentDate.getFullYear();
 
-  // Normalize JS Sunday=0..Saturday=6 to Monday=0..Sunday=6
-  const firstDayOffset = useMemo(() => {
-    const jsDay = new Date(year, month, 1).getDay(); // 0=Sun
-    return (jsDay + 6) % 7; // 0=Mon
+  // Build a quick lookup for leaves by YYYY-MM-DD
+  const leavesByDate = useMemo(() => {
+    const map = new Map<string, Pick<Leave, "id" | "date" | "status">>();
+    for (const l of leaves) {
+      // if multiple on same day, first one wins for badge (adjust if needed)
+      if (!map.has(l.date)) map.set(l.date, l);
+    }
+    return map;
+  }, [leaves]);
+
+  // Monday of the week that contains the 1st (keeps alignment and caps rows to 5)
+  const gridStart = useMemo(() => {
+    const firstOfMonth = new Date(year, month, 1);
+    const jsDay = firstOfMonth.getDay(); // 0=Sun..6=Sat
+    const mondayIndex = (jsDay + 6) % 7; // 0..6 (Mon..Sun)
+    const start = new Date(firstOfMonth);
+    start.setDate(firstOfMonth.getDate() - mondayIndex);
+    return start;
   }, [year, month]);
 
-  const daysInMonth = useMemo(
-    () => new Date(year, month + 1, 0).getDate(),
-    [year, month]
+  // Exactly 35 cells (5 rows)
+  const cells: Date[] = useMemo(
+    () =>
+      Array.from({ length: 35 }, (_, i) => {
+        const d = new Date(gridStart);
+        d.setDate(gridStart.getDate() + i);
+        return d;
+      }),
+    [gridStart]
   );
-
-  const cells: Array<number | null> = useMemo(() => {
-    const arr: Array<number | null> = [];
-    for (let i = 0; i < firstDayOffset; i++) arr.push(null);
-    for (let d = 1; d <= daysInMonth; d++) arr.push(d);
-    // Fill to 6 rows x 7 columns to avoid layout jumps
-    while (arr.length < 42) arr.push(null);
-    return arr;
-  }, [firstDayOffset, daysInMonth]);
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
@@ -49,22 +68,15 @@ const Calendar = ({ onDayClick, leaves }: CalendarProps) => {
     setCurrentDate(new Date(year, month + 1, 1));
   };
 
-  const formatDateKey = (y: number, m: number, d: number) =>
-    `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const formatKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate()
+    ).padStart(2, "0")}`;
 
-  const getLeave = (day: number | null) => {
-    if (day === null) return null;
-    const key = formatDateKey(year, month, day);
-    return leaves.find((l) => l.date === key) ?? null;
-  };
-
-  const isToday = (day: number | null): boolean =>
-    !!(
-      day &&
-      today.getDate() === day &&
-      today.getMonth() === month &&
-      today.getFullYear() === year
-    );
+  const isToday = (d: Date): boolean =>
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear();
 
   const monthName = currentDate.toLocaleString("default", { month: "long" });
 
@@ -77,65 +89,89 @@ const Calendar = ({ onDayClick, leaves }: CalendarProps) => {
 
   return (
     <div className="mt-6 bg-white rounded-lg shadow-md p-6 max-w-full">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="font-semibold text-xl text-gray-800">
-          Company Calendar
-        </h3>
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={goToPreviousMonth}
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span
-            className="font-semibold text-lg text-gray-800"
-            aria-live="polite"
-          >
-            {monthName} {year}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={goToNextMonth}
-            aria-label="Next month"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/10 rounded-lg backdrop-blur">
+                <Calendar1 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">
+                  Company Calendar
+                </h2>
+                <p className="text-slate-300 text-sm mt-1">
+                  Manage your leave schedule
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center bg-white/10 rounded-lg backdrop-blur">
+              <Button
+                variant="outline"
+                size="icon"
+                className="p-2 hover:bg-white/10 text-white rounded-l-lg transition-all duration-200"
+                onClick={goToPreviousMonth}
+                aria-label="Previous month"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <span className="px-4 font-semibold text-lg text-white min-w-[140px] text-center">
+                {monthName} {year}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="p-2 hover:bg-white/10 text-white rounded-r-lg transition-all duration-200"
+                onClick={goToNextMonth}
+                aria-label="Next month"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 text-center font-medium text-white bg-blue-600 rounded-t-lg">
-        {WEEKDAYS_MON_FIRST.map((label) => (
-          <div key={label} className="py-3 border-b border-blue-500">
+      {/* Week header (Mon-first) */}
+      <div className="grid grid-cols-7 mb-2">
+        {WEEKDAYS_MON_FIRST.map((label, index) => (
+          <div
+            key={label}
+            className={`text-center py-3 text-xs font-semibold uppercase tracking-wider ${
+              index >= 5 ? "text-slate-500" : "text-slate-700"
+            }`}
+          >
             {label}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 border-t border-gray-200">
-        {cells.map((day, i) => {
-          const leave = getLeave(day);
+      {/* 5 rows, 7 columns */}
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((d, i) => {
+          const inCurrentMonth = d.getMonth() === month;
+          const key = formatKey(d);
+          const leave = leavesByDate.get(key) ?? null;
           const status = leave?.status;
-          const clickable = day !== null;
 
-          const borderClass = isToday(day)
+          const clickable = inCurrentMonth;
+
+          const borderClass = isToday(d)
             ? "border-2 border-blue-500"
             : "border border-gray-200";
 
           const bgClass = [
-            clickable ? "bg-white" : "bg-gray-50",
-            isToday(day) ? "bg-blue-50" : "",
-            status === "pending"
-              ? "bg-yellow-200"
-              : status === "approved"
-              ? "bg-green-200"
-              : status === "rejected"
-              ? "bg-red-200"
-              : "",
+            inCurrentMonth ? "bg-white" : "bg-slate-50",
+            isToday(d) ? "bg-blue-50" : "",
+            status ? statusBg[status] : "",
           ].join(" ");
+
+          const textClass = inCurrentMonth ? "text-gray-800" : "text-slate-400";
 
           return (
             <div
@@ -148,17 +184,15 @@ const Calendar = ({ onDayClick, leaves }: CalendarProps) => {
                   ? "hover:bg-gray-50 cursor-pointer transition-colors"
                   : "cursor-default",
               ].join(" ")}
-              onClick={() =>
-                clickable && onDayClick(new Date(year, month, day!))
-              }
+              onClick={() => clickable && onDayClick(d)}
               aria-disabled={!clickable}
               role="button"
             >
-              <span className="font-medium text-lg text-gray-800">
-                {day ?? ""}
+              <span className={`font-medium text-lg ${textClass}`}>
+                {d.getDate()}
               </span>
 
-              {leave && (
+              {leave && inCurrentMonth && (
                 <span
                   className="text-xs sm:text-sm text-gray-600 font-medium text-center mt-1 truncate"
                   title={`Leave status: ${status}`}
@@ -171,22 +205,25 @@ const Calendar = ({ onDayClick, leaves }: CalendarProps) => {
         })}
       </div>
 
-      <div className="flex flex-wrap justify-end space-x-4 text-sm text-gray-600 mt-6 gap-2">
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-yellow-200 border border-gray-300 rounded" />
-          <span>Pending</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-green-200 border border-gray-300 rounded" />
-          <span>Approved</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-red-200 border border-gray-300 rounded" />
-          <span>Rejected</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-blue-50 border-2 border-blue-500 rounded" />
-          <span>Today</span>
+      {/* Legend */}
+      <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-200">
+        <div className="flex flex-wrap gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-amber-50 border border-amber-200 rounded" />
+            <span className="text-sm font-medium text-slate-600">Pending</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-emerald-50 border border-emerald-200 rounded" />
+            <span className="text-sm font-medium text-slate-600">Approved</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-rose-50 border border-rose-200 rounded" />
+            <span className="text-sm font-medium text-slate-600">Rejected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-blue-500 rounded" />
+            <span className="text-sm font-medium text-slate-600">Today</span>
+          </div>
         </div>
       </div>
     </div>
