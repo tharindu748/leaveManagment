@@ -6,6 +6,7 @@ import Dashboard from "@/features/dashboard/pages";
 import ProtectedRoute from "./protected-route";
 import PublicRoute from "./public-route";
 import Login from "@/features/auth/pages";
+import CalendarLeave from "@/features/calendar/pages";
 
 const AppRoutes = () => {
   return (
@@ -19,6 +20,7 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/calendar" element={<CalendarLeave />} />
         </Route>
       </Route>
 

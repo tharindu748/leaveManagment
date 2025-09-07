@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/sidebar";
 
 import { Separator } from "../ui/separator";
+import MainNav from "./main-nav";
+import NavUser from "./nav-user";
 
 export function AppSidebar() {
   return (
@@ -14,8 +16,12 @@ export function AppSidebar() {
       <SidebarHeader>
         <Separator />
       </SidebarHeader>
-      <SidebarContent></SidebarContent>
-      <SidebarFooter></SidebarFooter>
+      <SidebarContent>
+        <MainNav />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
