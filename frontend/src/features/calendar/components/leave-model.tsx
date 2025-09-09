@@ -75,7 +75,7 @@ const LeaveModal: React.FC<LeaveModalProps> = ({
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value as LeaveType | "")}
             >
-              <option value="">- Select -</option>
+              <option value="">Select Leave Type</option>
               <option value="ANNUAL">Annual Leave</option>
               <option value="CASUAL">Casual &amp; Sick Leave</option>
             </select>

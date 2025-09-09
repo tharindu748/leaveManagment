@@ -63,6 +63,17 @@ model Leave_balance {
   @@map("leave_balances")
 }
 
+model Leave_policy {
+  id               Int      @id @default(autoincrement())
+  year             Int      @unique
+  annualAllowance  Int      @default(14)
+  casualAllowance  Int      @default(7)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("leave_policies")
+}
+
 enum LeaveType {
   ANNUAL
   CASUAL

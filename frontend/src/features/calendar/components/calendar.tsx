@@ -75,12 +75,12 @@ const Calendar = ({
 
   const monthName = currentDate.toLocaleString("default", { month: "long" });
 
-  const getOrdinal = (n: number) => {
-    if (n % 10 === 1 && n % 100 !== 11) return `${n}st`;
-    if (n % 10 === 2 && n % 100 !== 12) return `${n}nd`;
-    if (n % 10 === 3 && n % 100 !== 13) return `${n}rd`;
-    return `${n}th`;
-  };
+  // const getOrdinal = (n: number) => {
+  //   if (n % 10 === 1 && n % 100 !== 11) return `${n}st`;
+  //   if (n % 10 === 2 && n % 100 !== 12) return `${n}nd`;
+  //   if (n % 10 === 3 && n % 100 !== 13) return `${n}rd`;
+  //   return `${n}th`;
+  // };
 
   return (
     <div className="mt-6 bg-white rounded-lg shadow-md p-6 max-w-full">
@@ -154,7 +154,7 @@ const Calendar = ({
           const inCurrentMonth = d.getMonth() === month;
           const key = formatKey(d);
           const leave = leavesByDate.get(key) ?? null;
-          const status = leave?.status;
+          // const status = leave?.status;
           const clickable = inCurrentMonth;
 
           const rawStatus = (leave?.status ?? "") as string;
@@ -206,14 +206,14 @@ const Calendar = ({
                 {d.getDate()}
               </span>
 
-              {leave && inCurrentMonth && (
+              {/* {leave && inCurrentMonth && (
                 <span
                   className="text-xs sm:text-sm text-gray-600 font-medium text-center mt-1 truncate"
                   title={`Leave status: ${status}`}
                 >
                   {getOrdinal(leave.id)} Leave
                 </span>
-              )}
+              )} */}
             </div>
           );
         })}

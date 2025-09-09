@@ -22,7 +22,7 @@ const CalendarLeave: React.FC = () => {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const { leaves, applyLeave } = useLeave();
 
-  const [leaveType, setLeaveType] = useState<LeaveType | "">("ANNUAL");
+  const [leaveType, setLeaveType] = useState<LeaveType | "">("");
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [dayDurations, setDayDurations] = useState<Record<string, DayDuration>>(
     {}
