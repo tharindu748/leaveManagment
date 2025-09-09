@@ -21,9 +21,6 @@ export class CreateLeaveRequestDto {
   @IsEnum(LeaveType)
   leaveType: LeaveType;
 
-  @IsEnum(LeaveStatus)
-  status: LeaveStatus;
-
   @IsOptional()
   @IsString()
   reason?: string;

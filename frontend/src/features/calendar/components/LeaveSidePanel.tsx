@@ -1,12 +1,16 @@
 import React, { useState } from "react";
 import type { LeaveType } from "../hooks/use-leave";
+import api from "@/api/axios";
 
 interface LeaveSidePanelProps {
   leaveType: LeaveType;
   setLeaveType: (type: LeaveType) => void;
   selectedDates: Date[];
   dayDurations: Record<string, "full" | "half" | "afternoon">;
-  handleDurationChange: (date: Date, value: "full" | "half" | "afternoon") => void;
+  handleDurationChange: (
+    date: Date,
+    value: "full" | "half" | "afternoon"
+  ) => void;
   handleApplyLeave: (reason: string) => void;
   removeDate: (date: Date) => void;
 }
@@ -23,15 +27,19 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
   const [reason, setReason] = useState("");
 
   // Optional: debug logging before applying
-  const handleApplyClick = () => {
-    console.log("Applying leave from Side Panel:");
-    console.log("Selected Dates:", selectedDates);
-    console.log("Leave Type:", leaveType);
-    console.log("Day Durations:", dayDurations);
-    console.log("Reason:", reason);
-
-    // Call parent function to actually apply leave
-    handleApplyLeave(reason);
+  const handleApplyClick = async () => {
+    try {
+      // const res = await api.post("/leave", {
+      //   userId: 1, // Replace with actual user ID
+      //   leaveType,
+      //   dates: selectedDates,
+      //   reason,
+      // });
+      // handleApplyLeave(reason);
+      // console.log(res.data);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -63,7 +71,10 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
           selectedDates.map((date) => {
             const key = date.toISOString().split("T")[0];
             return (
-              <div key={key} className="flex items-center justify-between border-b py-2">
+              <div
+                key={key}
+                className="flex items-center justify-between border-b py-2"
+              >
                 <span className="text-sm">{date.toDateString()}</span>
 
                 <div className="flex items-center gap-2">
@@ -71,7 +82,10 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
                     className="border rounded-md px-2 py-1"
                     value={dayDurations[key] || "full"}
                     onChange={(e) =>
-                      handleDurationChange(date, e.target.value as "full" | "half" | "afternoon")
+                      handleDurationChange(
+                        date,
+                        e.target.value as "full" | "half" | "afternoon"
+                      )
                     }
                   >
                     <option value="full">Full Day</option>
@@ -94,19 +108,18 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
       </div>
 
       {/* Reason textbox */}
-      {selectedDates.length >0 && (
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Reason</label>
-        <textarea
-          className="w-full border rounded-md px-3 py-2"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Why do you need the above leave(s)? (Not mandatory!)"
-          rows={3}
-        />
-       
-      </div>
- )}
+      {selectedDates.length > 0 && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1">Reason</label>
+          <textarea
+            className="w-full border rounded-md px-3 py-2"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why do you need the above leave(s)? (Not mandatory!)"
+            rows={3}
+          />
+        </div>
+      )}
       {/* Apply button */}
       {selectedDates.length > 0 && (
         <button

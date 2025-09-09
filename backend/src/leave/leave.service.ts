@@ -7,14 +7,13 @@ export class LeaveService {
   constructor(private databaseService: DatabaseService) {}
 
   async createLeaveRequest(data: CreateLeaveRequestDto) {
-    const { userId, approvedBy, leaveType, status, reason, dates } = data;
+    const { userId, approvedBy, leaveType, reason, dates } = data;
 
     return this.databaseService.leave_request.create({
       data: {
         user: { connect: { id: userId } },
         approvedBy,
         leaveType,
-        status,
         reason,
         dates: {
           create: dates.map((d) => ({
