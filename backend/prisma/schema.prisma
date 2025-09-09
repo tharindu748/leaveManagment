@@ -8,13 +8,74 @@ datasource db {
 }
 
 model User {
-  id        Int    @id @default(autoincrement())
-  email     String    @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  password     String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   refreshToken String?
 
+  leaveRequests Leave_request[]
+  leaveBalances Leave_balance[]
+
   @@map("users")
+}
+
+model Leave_request {
+  id          Int                  @id @default(autoincrement())
+  userId      Int
+  approvedBy  String?
+  leaveType   LeaveType
+  status      LeaveStatus          @default(PENDING)
+  reason      String?
+  requestedAt DateTime             @default(now())
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  dates       Leave_request_date[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("leave_requests")
+}
+
+model Leave_request_date {
+  id          Int           @id @default(autoincrement())
+  requestId   Int
+  leaveDate   DateTime
+  isHalfDay   Boolean       @default(false)
+  halfdayType HalfdayType?
+  request     Leave_request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("leave_request_dates")
+}
+
+model Leave_balance {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  year      Int
+  leaveType LeaveType
+  balance   Float
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, leaveType])
+  @@map("leave_balances")
+}
+
+enum LeaveType {
+  ANNUAL
+  CASUAL
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum HalfdayType {
+  MORNING
+  AFTERNOON
 }

@@ -30,7 +30,7 @@ const items = [
     items: [],
   },
   {
-    title: "Calendar",
+    title: "Go To Calendar",
     isActive: false,
     icon: Calendar,
     url: "/calendar",
