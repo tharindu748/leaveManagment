@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import type { LeaveType } from "../hooks/use-leave";
-import api from "@/api/axios";
 
 type DayDuration = "FULL" | "MORNING" | "AFTERNOON";
 
@@ -10,7 +9,7 @@ interface LeaveSidePanelProps {
   selectedDates: Date[];
   dayDurations: Record<string, DayDuration>;
   handleDurationChange: (date: Date, value: DayDuration) => void;
-  handleApplyLeave: (reason: string) => void;
+  handleApplyLeave: (reason: string) => Promise<void>;
   removeDate: (date: Date) => void;
 }
 
@@ -50,18 +49,16 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
     const body = {
       userId: 1,
       approvedBy: null,
-      leaveType: leaveType as LeaveType, // "ANNUAL" | "CASUAL"
-      reason: reason || undefined, // omit if empty
-      dates: buildDatesPayload(), // <-- correct shape
+      leaveType: leaveType as LeaveType,
+      reason: reason || undefined,
+      dates: buildDatesPayload(),
     };
 
     try {
-      await api.post("/leave", body);
       await handleApplyLeave(reason); // update local UI (parent)
       setReason("");
     } catch (e: any) {
       console.error("Leave submit failed:", e?.response?.data || e);
-      // optionally show a toast/error UI here
     }
   };
 

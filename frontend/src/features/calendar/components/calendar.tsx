@@ -12,9 +12,9 @@ interface CalendarProps {
 const WEEKDAYS_MON_FIRST = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const statusBg: Record<"pending" | "approved" | "rejected", string> = {
-  pending: "bg-amber-100",
-  approved: "bg-emerald-100",
-  rejected: "bg-rose-100",
+  pending: "bg-yellow-100",
+  approved: "bg-green-100",
+  rejected: "bg-red-100",
 };
 
 const Calendar = ({
@@ -157,6 +157,12 @@ const Calendar = ({
           const status = leave?.status;
           const clickable = inCurrentMonth;
 
+          const rawStatus = (leave?.status ?? "") as string;
+          const statusKey = rawStatus.toLowerCase() as
+            | "pending"
+            | "approved"
+            | "rejected";
+
           // Check if date is selected
           const isSelected = selectedDates.some(
             (sd) =>
@@ -171,13 +177,12 @@ const Calendar = ({
 
           const bgClass = [
             inCurrentMonth ? "bg-white" : "bg-slate-50",
-            isToday(d) ? "bg-blue-500" : "",
-            status ? statusBg[status] : "",
-            isSelected ? "bg-blue-500 text-red-500" : "",
+            statusKey ? statusBg[statusKey] : "",
+            isSelected ? "bg-yellow-200 ring-2 ring-yellow-500" : "",
           ].join(" ");
 
           const textClass = isSelected
-            ? "text-red-500"
+            ? "text-slate-900"
             : inCurrentMonth
             ? "text-gray-800"
             : "text-slate-400";
@@ -218,15 +223,17 @@ const Calendar = ({
       <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-200">
         <div className="flex flex-wrap gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-amber-50 border border-amber-200 rounded" />
-            <span className="text-sm font-medium text-slate-600">Pending</span>
+            <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded" />
+            <span className="text-sm font-medium text-slate-600">
+              Pending / Requested
+            </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-emerald-50 border border-emerald-200 rounded" />
+            <div className="w-4 h-4 bg-green-100 border border-green-200 rounded" />
             <span className="text-sm font-medium text-slate-600">Approved</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-rose-50 border border-rose-200 rounded" />
+            <div className="w-4 h-4 bg-red-100 border border-red-200 rounded" />
             <span className="text-sm font-medium text-slate-600">Rejected</span>
           </div>
           <div className="flex items-center gap-2">
@@ -234,8 +241,8 @@ const Calendar = ({
             <span className="text-sm font-medium text-slate-600">Today</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-500 rounded" />
-            <span className="text-sm font-medium text-white">Selected</span>
+            <div className="w-4 h-4 bg-yellow-200 border border-yellow-400 rounded" />
+            <span className="text-sm font-medium text-slate-600">Selected</span>
           </div>
         </div>
       </div>

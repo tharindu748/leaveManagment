@@ -73,7 +73,6 @@ const CalendarLeave: React.FC = () => {
     setDayDurations(copy);
   };
 
-  // --- Shared submit to backend ---
   const submitLeave = async (
     dates: Date[],
     type: LeaveType,
@@ -96,16 +95,15 @@ const CalendarLeave: React.FC = () => {
     });
 
     const body = {
-      userId: 1, // TODO: replace with actual logged-in user id
+      userId: 1,
       approvedBy: null,
-      leaveType: type, // "ANNUAL" | "CASUAL"
+      leaveType: type,
       reason: reason || null,
       dates: datesPayload,
     };
 
     const res = await api.post("/leave", body);
 
-    // Update local UI state optimistically
     datesPayload.forEach(({ date }) => applyLeave(date, type));
 
     return res.data;
