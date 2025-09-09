@@ -6,7 +6,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { LeaveType, LeaveStatus } from '@prisma/client';
+import { LeaveType, LeaveStatus, HalfdayType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { LeaveDateDto } from './leave_date.dto';
 
@@ -20,6 +20,11 @@ export class CreateLeaveRequestDto {
 
   @IsEnum(LeaveType)
   leaveType: LeaveType;
+
+  @IsOptional()
+  @IsEnum(HalfdayType)
+  @IsString()
+  halfDayType?: HalfdayType;
 
   @IsOptional()
   @IsString()

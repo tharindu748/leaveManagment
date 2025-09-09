@@ -1,22 +1,32 @@
 import React, { useEffect, useState } from "react";
 import { useLeave, type LeaveType } from "../hooks/use-leave";
 import LeaveCard from "../components/leave-card";
-import Calendar from "../components/calendar";
+
 import LeaveSidePanel from "../components/LeaveSidePanel";
 import LeaveModal from "../components/leave-model";
 import type { OutletContextType } from "@/layouts/main-layout";
 import { useOutletContext } from "react-router";
+import api from "@/api/axios";
+import Calendar from "../components/calendar";
+
+type DayDuration = "FULL" | "MORNING" | "AFTERNOON";
+
+const formatDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 const CalendarLeave: React.FC = () => {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const { leaves, applyLeave } = useLeave();
 
-  // --- States ---
-  const [leaveType, setLeaveType] = useState<LeaveType>("ANNUAL");
+  const [leaveType, setLeaveType] = useState<LeaveType | "">("ANNUAL");
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [dayDurations, setDayDurations] = useState<
-    Record<string, "full" | "half" | "afternoon">
-  >({});
+  const [dayDurations, setDayDurations] = useState<Record<string, DayDuration>>(
+    {}
+  );
 
   const [isModalOpen, setModalOpen] = useState(false);
   const [clickedDate, setClickedDate] = useState<Date | null>(null);
@@ -26,25 +36,19 @@ const CalendarLeave: React.FC = () => {
   }, [setBreadcrumb]);
 
   const handleDayClick = (date: Date) => {
-    const key = date.toISOString().split("T")[0];
+    const key = formatDate(date);
 
-    // Check if leave type is selected in side panel
-    const isLeaveTypeSelectedInPanel = leaveType !== "";
+    const isLeaveTypeSelectedInPanel = !!leaveType;
 
     if (!isLeaveTypeSelectedInPanel) {
-      // Open modal if no leave type selected
       setClickedDate(date);
       setModalOpen(true);
     } else {
-      // Add date to selectedDates if not already added
-      if (!selectedDates.some((d) => d.toISOString().split("T")[0] === key)) {
+      if (!selectedDates.some((d) => formatDate(d) === key)) {
         setSelectedDates([...selectedDates, date]);
-        setDayDurations({ ...dayDurations, [key]: "full" });
+        setDayDurations({ ...dayDurations, [key]: "FULL" });
       } else {
-        // Optional: remove date if clicked again
-        setSelectedDates(
-          selectedDates.filter((d) => d.toISOString().split("T")[0] !== key)
-        );
+        setSelectedDates(selectedDates.filter((d) => formatDate(d) !== key));
         const copy = { ...dayDurations };
         delete copy[key];
         setDayDurations(copy);
@@ -52,44 +56,78 @@ const CalendarLeave: React.FC = () => {
     }
   };
 
-  // --- Side panel leave type change ---
-  const handleLeaveTypeChange = (type: LeaveType) => {
+  const handleLeaveTypeChange = (type: LeaveType | "") => {
     setLeaveType(type);
   };
 
-  // --- Duration change for side panel ---
-  const handleDurationChange = (
-    date: Date,
-    value: "full" | "half" | "afternoon"
-  ) => {
-    const key = date.toISOString().split("T")[0];
+  const handleDurationChange = (date: Date, value: DayDuration) => {
+    const key = formatDate(date);
     setDayDurations((prev) => ({ ...prev, [key]: value }));
   };
 
-  // --- Remove a date from side panel ---
   const removeDate = (date: Date) => {
-    const key = date.toISOString().split("T")[0];
-    setSelectedDates(
-      selectedDates.filter((d) => d.toISOString().split("T")[0] !== key)
-    );
+    const key = formatDate(date);
+    setSelectedDates(selectedDates.filter((d) => formatDate(d) !== key));
     const copy = { ...dayDurations };
     delete copy[key];
     setDayDurations(copy);
   };
 
-  // --- Apply leave from modal ---
-  const handleApplyLeaveFromModal = (date: Date) => {
-    const key = date.toISOString().split("T")[0];
-    applyLeave(key, leaveType);
+  // --- Shared submit to backend ---
+  const submitLeave = async (
+    dates: Date[],
+    type: LeaveType,
+    reason: string,
+    durationsMap: Record<string, DayDuration>
+  ) => {
+    const datesPayload = dates.map((d) => {
+      const key = formatDate(d);
+      const duration = durationsMap[key] ?? "FULL";
+      return {
+        date: key,
+        isHalfDay: duration !== "FULL",
+        halfDayType:
+          duration === "MORNING"
+            ? "MORNING"
+            : duration === "AFTERNOON"
+            ? "AFTERNOON"
+            : null,
+      };
+    });
+
+    const body = {
+      userId: 1, // TODO: replace with actual logged-in user id
+      approvedBy: null,
+      leaveType: type, // "ANNUAL" | "CASUAL"
+      reason: reason || null,
+      dates: datesPayload,
+    };
+
+    const res = await api.post("/leave", body);
+
+    // Update local UI state optimistically
+    datesPayload.forEach(({ date }) => applyLeave(date, type));
+
+    return res.data;
+  };
+
+  // --- Modal apply (single date) ---
+  const handleApplyLeaveFromModal = async (
+    date: Date | null,
+    type: LeaveType,
+    duration: DayDuration,
+    reason: string
+  ) => {
+    if (!date) return;
+    await submitLeave([date], type, reason, { [formatDate(date)]: duration });
     setClickedDate(null);
     setModalOpen(false);
   };
 
-  // --- Apply leave from side panel for multiple dates ---
-  const handleApplyLeaveFromSidePanel = () => {
-    selectedDates.forEach((d) =>
-      applyLeave(d.toISOString().split("T")[0], leaveType)
-    );
+  // --- Side panel apply (multiple dates) ---
+  const handleApplyLeaveFromSidePanel = async (reason: string) => {
+    if (!leaveType) return; // user chose "Select Leave type"
+    await submitLeave(selectedDates, leaveType, reason, dayDurations);
     setSelectedDates([]);
     setDayDurations({});
   };
@@ -114,7 +152,7 @@ const CalendarLeave: React.FC = () => {
         </div>
 
         {/* --- Main layout --- */}
-        <div className="flex flex-row gap-6 grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           {/* Left: Calendar */}
           <div className="md:col-span-3">
             <Calendar
@@ -128,7 +166,7 @@ const CalendarLeave: React.FC = () => {
           <div className="md:col-span-1">
             <LeaveSidePanel
               leaveType={leaveType}
-              setLeaveType={handleLeaveTypeChange} // only changes type
+              setLeaveType={handleLeaveTypeChange}
               selectedDates={selectedDates}
               dayDurations={dayDurations}
               handleDurationChange={handleDurationChange}
@@ -144,7 +182,6 @@ const CalendarLeave: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setModalOpen(false)}
         selectedDate={clickedDate}
-        leaveType={leaveType}
         onApplyLeave={handleApplyLeaveFromModal}
       />
     </div>

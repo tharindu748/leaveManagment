@@ -27,7 +27,7 @@ model Leave_request {
   userId      Int
   approvedBy  String?
   leaveType   LeaveType
-  status      LeaveStatus          @default(PENDING)
+  status      LeaveStatus?          @default(PENDING)
   reason      String?
   requestedAt DateTime             @default(now())
   approvedAt  DateTime?

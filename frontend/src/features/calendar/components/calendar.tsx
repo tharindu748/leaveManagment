@@ -5,7 +5,7 @@ import type { Leave } from "../hooks/use-leave";
 
 interface CalendarProps {
   onDayClick: (date: Date) => void;
-  selectedDates?: Date[]; // optional, default []
+  selectedDates?: Date[];
   leaves: Array<Pick<Leave, "id" | "date" | "status">>;
 }
 

@@ -2,15 +2,14 @@ import React, { useState } from "react";
 import type { LeaveType } from "../hooks/use-leave";
 import api from "@/api/axios";
 
+type DayDuration = "FULL" | "MORNING" | "AFTERNOON";
+
 interface LeaveSidePanelProps {
-  leaveType: LeaveType;
-  setLeaveType: (type: LeaveType) => void;
+  leaveType: LeaveType | "";
+  setLeaveType: (type: LeaveType | "") => void;
   selectedDates: Date[];
-  dayDurations: Record<string, "full" | "half" | "afternoon">;
-  handleDurationChange: (
-    date: Date,
-    value: "full" | "half" | "afternoon"
-  ) => void;
+  dayDurations: Record<string, DayDuration>;
+  handleDurationChange: (date: Date, value: DayDuration) => void;
   handleApplyLeave: (reason: string) => void;
   removeDate: (date: Date) => void;
 }
@@ -26,19 +25,43 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
 }) => {
   const [reason, setReason] = useState("");
 
-  // Optional: debug logging before applying
+  const formatKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate()
+    ).padStart(2, "0")}`;
+
+  const buildDatesPayload = () =>
+    selectedDates.map((d) => {
+      const key = formatKey(d);
+      const duration = dayDurations[key] || "FULL";
+      if (duration === "FULL") {
+        return { date: key, isHalfDay: false };
+      }
+      return {
+        date: key,
+        isHalfDay: true,
+        halfDayType: duration as "MORNING" | "AFTERNOON",
+      };
+    });
+
   const handleApplyClick = async () => {
+    if (!leaveType || selectedDates.length === 0) return;
+
+    const body = {
+      userId: 1,
+      approvedBy: null,
+      leaveType: leaveType as LeaveType, // "ANNUAL" | "CASUAL"
+      reason: reason || undefined, // omit if empty
+      dates: buildDatesPayload(), // <-- correct shape
+    };
+
     try {
-      // const res = await api.post("/leave", {
-      //   userId: 1, // Replace with actual user ID
-      //   leaveType,
-      //   dates: selectedDates,
-      //   reason,
-      // });
-      // handleApplyLeave(reason);
-      // console.log(res.data);
-    } catch (error) {
-      console.error(error);
+      await api.post("/leave", body);
+      await handleApplyLeave(reason); // update local UI (parent)
+      setReason("");
+    } catch (e: any) {
+      console.error("Leave submit failed:", e?.response?.data || e);
+      // optionally show a toast/error UI here
     }
   };
 
@@ -52,12 +75,11 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
         <select
           className="w-full border rounded-md px-3 py-2"
           value={leaveType}
-          onChange={(e) => setLeaveType(e.target.value as LeaveType)}
+          onChange={(e) => setLeaveType(e.target.value as LeaveType | "")}
         >
           <option value="">Select Leave type</option>
-          <option value="annual">Annual Leave</option>
-          <option value="casual">Casual Leave</option>
-          <option value="sick">Sick Leave</option>
+          <option value="ANNUAL">Annual Leave</option>
+          <option value="CASUAL">Casual Leave</option>
         </select>
       </div>
 
@@ -69,7 +91,7 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
           </p>
         ) : (
           selectedDates.map((date) => {
-            const key = date.toISOString().split("T")[0];
+            const key = formatKey(date);
             return (
               <div
                 key={key}
@@ -80,20 +102,16 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
                 <div className="flex items-center gap-2">
                   <select
                     className="border rounded-md px-2 py-1"
-                    value={dayDurations[key] || "full"}
+                    value={dayDurations[key] || "FULL"}
                     onChange={(e) =>
-                      handleDurationChange(
-                        date,
-                        e.target.value as "full" | "half" | "afternoon"
-                      )
+                      handleDurationChange(date, e.target.value as DayDuration)
                     }
                   >
-                    <option value="full">Full Day</option>
-                    <option value="half">Half Day</option>
-                    <option value="afternoon">Afternoon</option>
+                    <option value="FULL">Full Day</option>
+                    <option value="MORNING">Morning</option>
+                    <option value="AFTERNOON">Afternoon</option>
                   </select>
 
-                  {/* Remove button */}
                   <button
                     onClick={() => removeDate(date)}
                     className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
@@ -115,16 +133,18 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
             className="w-full border rounded-md px-3 py-2"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Why do you need the above leave(s)? (Not mandatory!)"
+            placeholder="Why do you need the above leave(s)? (Optional)"
             rows={3}
           />
         </div>
       )}
+
       {/* Apply button */}
       {selectedDates.length > 0 && (
         <button
           onClick={handleApplyClick}
           className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          disabled={!leaveType}
         >
           Apply Leave
         </button>
