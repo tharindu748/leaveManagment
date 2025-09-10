@@ -12,9 +12,9 @@ interface CalendarProps {
 const WEEKDAYS_MON_FIRST = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const statusBg: Record<"pending" | "approved" | "rejected", string> = {
-  pending: "bg-yellow-100",
-  approved: "bg-green-100",
-  rejected: "bg-red-100",
+  pending: "!bg-yellow-100",
+  approved: "!bg-green-100",
+  rejected: "!bg-red-100",
 };
 
 const Calendar = ({
@@ -74,13 +74,6 @@ const Calendar = ({
     d.getFullYear() === today.getFullYear();
 
   const monthName = currentDate.toLocaleString("default", { month: "long" });
-
-  // const getOrdinal = (n: number) => {
-  //   if (n % 10 === 1 && n % 100 !== 11) return `${n}st`;
-  //   if (n % 10 === 2 && n % 100 !== 12) return `${n}nd`;
-  //   if (n % 10 === 3 && n % 100 !== 13) return `${n}rd`;
-  //   return `${n}th`;
-  // };
 
   return (
     <div className="mt-6 bg-white rounded-lg shadow-md p-6 max-w-full">
@@ -154,7 +147,6 @@ const Calendar = ({
           const inCurrentMonth = d.getMonth() === month;
           const key = formatKey(d);
           const leave = leavesByDate.get(key) ?? null;
-          // const status = leave?.status;
           const clickable = inCurrentMonth;
 
           const rawStatus = (leave?.status ?? "") as string;
@@ -175,11 +167,16 @@ const Calendar = ({
             ? "border-2 border-blue-500"
             : "border border-gray-200";
 
-          const bgClass = [
-            inCurrentMonth ? "bg-white" : "bg-slate-50",
-            statusKey ? statusBg[statusKey] : "",
-            isSelected ? "bg-yellow-200 ring-2 ring-yellow-500" : "",
-          ].join(" ");
+          const statusClass =
+            statusKey && statusBg[statusKey] ? statusBg[statusKey] : "";
+
+          const baseBg = inCurrentMonth ? "bg-white" : "bg-slate-50";
+          const selectedOverride = isSelected
+            ? "!bg-yellow-200 ring-2 ring-yellow-500"
+            : "";
+          const hoverClass = clickable && !isSelected ? "hover:bg-gray-50" : "";
+
+          const bgClass = [statusClass || baseBg, selectedOverride].join(" ");
 
           const textClass = isSelected
             ? "text-slate-900"
@@ -195,7 +192,7 @@ const Calendar = ({
                 borderClass,
                 bgClass,
                 clickable
-                  ? "hover:bg-gray-50 cursor-pointer transition-colors"
+                  ? `${hoverClass} cursor-pointer transition-colors`
                   : "cursor-default",
               ].join(" ")}
               onClick={() => clickable && onDayClick(d)}
@@ -205,15 +202,6 @@ const Calendar = ({
               <span className={`font-medium text-lg ${textClass}`}>
                 {d.getDate()}
               </span>
-
-              {/* {leave && inCurrentMonth && (
-                <span
-                  className="text-xs sm:text-sm text-gray-600 font-medium text-center mt-1 truncate"
-                  title={`Leave status: ${status}`}
-                >
-                  {getOrdinal(leave.id)} Leave
-                </span>
-              )} */}
             </div>
           );
         })}
