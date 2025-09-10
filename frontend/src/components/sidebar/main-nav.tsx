@@ -38,6 +38,13 @@ const items = [
     url: "/calendar",
     items: [],
   },
+    {
+    title: "Time Managment",
+    isActive: false,
+    icon: Calendar,
+    url: "/EmployeeDetails",
+    items: [],
+  },
   {
     title: "Acticity",
     isActive: false,

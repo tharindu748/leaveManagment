@@ -7,7 +7,8 @@ import ProtectedRoute from "./protected-route";
 import PublicRoute from "./public-route";
 import Login from "@/features/auth/pages";
 import CalendarLeave from "@/features/calendar/pages";
-import AttendancePage from "@/features/Activities/pages"
+import AttendancePage from "@/features/Activities/pages";
+import EmployeeManagement from "@/features/Attendance/page"
 
 const AppRoutes = () => {
   return (
@@ -23,6 +24,7 @@ const AppRoutes = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={<CalendarLeave />} />
           <Route path="/EmployeeAttendance" element={<AttendancePage />} />
+          <Route path="/EmployeeDetails" element={<EmployeeManagement />} />
         </Route>
       </Route>
 
