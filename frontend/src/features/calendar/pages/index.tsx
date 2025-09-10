@@ -102,7 +102,7 @@ const CalendarLeave: React.FC = () => {
       dates: datesPayload,
     };
 
-    const res = await api.post("/leave", body);
+    const res = await api.post("/leave/request", body);
 
     datesPayload.forEach(({ date }) => applyLeave(date, type));
 
@@ -139,13 +139,13 @@ const CalendarLeave: React.FC = () => {
             title="ANNUAL LEAVE"
             total={leaves.annualLeave.total}
             available={leaves.annualLeave.available}
-            color="text-leave-blue"
+            color="text-blue-500"
           />
           <LeaveCard
             title="CASUAL & SICK LEAVE"
             total={leaves.casualSickLeave.total}
             available={leaves.casualSickLeave.available}
-            color="text-leave-cyan"
+            color="text-cyan-500"
           />
         </div>
 

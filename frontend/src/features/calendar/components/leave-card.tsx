@@ -4,7 +4,6 @@ interface LeaveCardProps {
   title: string;
   total: number;
   available: number;
-  // Tailwind color class for the number (e.g., "text-green-500")
   color?: string;
 }
 

@@ -64,12 +64,8 @@ model Leave_balance {
 }
 
 model Leave_policy {
-  id               Int      @id @default(autoincrement())
-  year             Int      @unique
-  annualAllowance  Int      @default(14)
-  casualAllowance  Int      @default(7)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  leaveType      LeaveType @id
+  defaultBalance Float
 
   @@map("leave_policies")
 }

@@ -22,7 +22,6 @@ export interface LeavesData {
   leaves: Leave[];
 }
 
-// ---- EMPTY baseline (no sample rows) ----
 const EMPTY: LeavesData = {
   annualLeave: { total: 0, available: 0, pending: 0, used: 0 },
   casualSickLeave: { total: 0, available: 0, pending: 0, used: 0 },
@@ -66,10 +65,10 @@ const computeSummary = (
 
 function normalizeFromRequests(
   rows: ApiLeaveRequest[],
-  totals = { annual: 14, casual: 7 } // tweak if your org has different yearly totals
+  totals = { annual: 14, casual: 7 }
 ): LeavesData {
   const flat: Leave[] = rows.flatMap((r) => {
-    const type: LeaveType = r.leaveType === "ANNUAL" ? "ANNUAL" : "CASUAL"; // bucket SICK with CASUAL
+    const type: LeaveType = r.leaveType === "ANNUAL" ? "ANNUAL" : "CASUAL";
     return (r.dates ?? [])
       .map((d) => ({
         id: d.id ?? r.id,
@@ -100,7 +99,9 @@ export function useLeave() {
   const fetchLeaves = async () => {
     try {
       setLoading(true);
-      const res = await api.get<ApiLeaveRequest[] | LeavesData>("/leave");
+      const res = await api.get<ApiLeaveRequest[] | LeavesData>(
+        `/leave/requests?userId=${1}`
+      );
       const payload = res.data;
       const next: LeavesData = Array.isArray(payload)
         ? normalizeFromRequests(payload)

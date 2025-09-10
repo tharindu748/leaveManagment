@@ -1,11 +1,48 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { CreateLeaveRequestDto } from './dto/create_leave_request.dto';
-import { LeaveStatus } from '@prisma/client';
+import { LeaveStatus, LeaveType } from '@prisma/client';
 
 @Injectable()
 export class LeaveService {
   constructor(private databaseService: DatabaseService) {}
+
+  private async getOrInitializeBalance(
+    userId: number,
+    year: number,
+    leaveType: LeaveType,
+  ) {
+    let balance = await this.databaseService.leave_balance.findUnique({
+      where: {
+        userId_year_leaveType: { userId, year, leaveType },
+      },
+    });
+
+    if (!balance) {
+      const policy = await this.databaseService.leave_policy.findUnique({
+        where: { leaveType },
+      });
+      if (!policy) {
+        throw new NotFoundException(
+          `No policy found for leave type: ${leaveType}`,
+        );
+      }
+      balance = await this.databaseService.leave_balance.create({
+        data: {
+          userId,
+          year,
+          leaveType,
+          balance: policy.defaultBalance,
+        },
+      });
+    }
+    return balance;
+  }
 
   async createLeaveRequest(data: CreateLeaveRequestDto) {
     const { userId, approvedBy, leaveType, reason, dates } = data;
@@ -44,6 +81,13 @@ export class LeaveService {
       );
     }
 
+    const datesForCheck = dates.map((d) => ({
+      date: normalizeDate(new Date(d.date)).toISOString(),
+      isHalfDay: !!d.isHalfDay,
+    }));
+
+    await this.checkSufficientBalance(userId, leaveType, datesForCheck);
+
     return this.databaseService.leave_request.create({
       data: {
         user: { connect: { id: userId } },
@@ -71,13 +115,189 @@ export class LeaveService {
     });
   }
 
-  findLeaveRequestsByUserId(userId: number) {
+  // Helper to calculate deductions grouped by year
+  private calculateDeductionsByYear(
+    dates: { leaveDate: Date; isHalfDay: boolean }[],
+  ) {
+    const deductionsByYear = new Map<number, number>();
+    dates.forEach((d) => {
+      const year = d.leaveDate.getUTCFullYear();
+      const deduction = d.isHalfDay ? 0.5 : 1;
+      deductionsByYear.set(year, (deductionsByYear.get(year) || 0) + deduction);
+    });
+    return deductionsByYear;
+  }
+
+  // Helper to check if sufficient balance across years
+  private async checkSufficientBalance(
+    userId: number,
+    leaveType: LeaveType,
+    dates: { date: string; isHalfDay?: boolean; halfDayType?: string }[],
+  ) {
+    const normalizedDates = dates.map((d) => ({
+      leaveDate: new Date(d.date),
+      isHalfDay: d.isHalfDay ?? false,
+    }));
+    const deductionsByYear = this.calculateDeductionsByYear(normalizedDates);
+
+    for (const [year, deduction] of deductionsByYear.entries()) {
+      const balance = await this.getOrInitializeBalance(
+        userId,
+        year,
+        leaveType,
+      );
+      if (balance.balance < deduction) {
+        throw new BadRequestException(
+          `Insufficient ${leaveType} leave balance for year ${year}. Available: ${balance.balance}, Required: ${deduction}`,
+        );
+      }
+    }
+  }
+
+  // Approve a leave request and deduct balances
+  async approveLeaveRequest(requestId: number, approvedBy: string) {
+    const request = await this.databaseService.leave_request.findUnique({
+      where: { id: requestId },
+      include: { dates: true },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Leave request not found');
+    }
+    if (request.status !== LeaveStatus.PENDING) {
+      throw new BadRequestException('Request is not pending');
+    }
+
+    // Check sufficient balance
+    const datesForCheck = request.dates.map((d) => ({
+      date: d.leaveDate.toISOString(),
+      isHalfDay: d.isHalfDay,
+    }));
+    await this.checkSufficientBalance(
+      request.userId,
+      request.leaveType,
+      datesForCheck,
+    );
+
+    // Deduct from balances
+    const deductionsByYear = this.calculateDeductionsByYear(request.dates);
+    for (const [year, deduction] of deductionsByYear.entries()) {
+      await this.databaseService.leave_balance.update({
+        where: {
+          userId_year_leaveType: {
+            userId: request.userId,
+            year,
+            leaveType: request.leaveType,
+          },
+        },
+        data: { balance: { decrement: deduction } },
+      });
+    }
+
+    // Update request status
+    return this.databaseService.leave_request.update({
+      where: { id: requestId },
+      data: {
+        status: LeaveStatus.APPROVED,
+        approvedAt: new Date(),
+        approvedBy,
+      },
+      include: { dates: true, user: true },
+    });
+  }
+
+  // Cancel a leave request (add back if approved)
+  async cancelLeaveRequest(requestId: number) {
+    const request = await this.databaseService.leave_request.findUnique({
+      where: { id: requestId },
+      include: { dates: true },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Leave request not found');
+    }
+    if (request.status === LeaveStatus.CANCELLED) {
+      throw new BadRequestException('Request already cancelled');
+    }
+
+    if (request.status === LeaveStatus.APPROVED) {
+      // Add back to balances
+      const deductionsByYear = this.calculateDeductionsByYear(request.dates);
+      for (const [year, deduction] of deductionsByYear.entries()) {
+        await this.databaseService.leave_balance.update({
+          where: {
+            userId_year_leaveType: {
+              userId: request.userId,
+              year,
+              leaveType: request.leaveType,
+            },
+          },
+          data: { balance: { increment: deduction } },
+        });
+      }
+    }
+
+    // Update status
+    return this.databaseService.leave_request.update({
+      where: { id: requestId },
+      data: { status: LeaveStatus.CANCELLED },
+      include: { dates: true, user: true },
+    });
+  }
+
+  // Admin method to update company policy (affects all employees for current year)
+  async updateLeavePolicy(leaveType: LeaveType, newDefaultBalance: number) {
+    const policy = await this.databaseService.leave_policy.upsert({
+      where: { leaveType },
+      update: { defaultBalance: newDefaultBalance },
+      create: { leaveType, defaultBalance: newDefaultBalance },
+    });
+
+    const oldDefault = policy.defaultBalance; // This is the old value before update? Wait, no—upsert returns updated.
+    // To get delta, fetch old first
+    // Actually, restructure: fetch old, compute delta, then update
+
+    const existingPolicy = await this.databaseService.leave_policy.findUnique({
+      where: { leaveType },
+    });
+    const oldDefaultBalance = existingPolicy
+      ? existingPolicy.defaultBalance
+      : 0; // Assume 0 if new
+    const delta = newDefaultBalance - oldDefaultBalance;
+
+    // Update policy
+    await this.databaseService.leave_policy.upsert({
+      where: { leaveType },
+      update: { defaultBalance: newDefaultBalance },
+      create: { leaveType, defaultBalance: newDefaultBalance },
+    });
+
+    // Apply delta to all existing balances for current year
+    const currentYear = new Date().getUTCFullYear();
+    await this.databaseService.leave_balance.updateMany({
+      where: { leaveType, year: currentYear },
+      data: { balance: { increment: delta } },
+    });
+
+    return {
+      message: `Policy updated for ${leaveType}. Delta ${delta} applied to all current-year balances.`,
+    };
+  }
+
+  async findLeaveRequests(userId?: number) {
+    const where = userId != null ? { userId } : {};
+
     return this.databaseService.leave_request.findMany({
-      where: { userId },
+      where,
       include: {
         dates: true,
-        user: true,
+        user: { select: { id: true, name: true, email: true } },
       },
     });
+  }
+
+  // New: Get balance for a user (initializes if needed)
+  async getLeaveBalance(userId: number, year: number, leaveType: LeaveType) {
+    return this.getOrInitializeBalance(userId, year, leaveType);
   }
 }
