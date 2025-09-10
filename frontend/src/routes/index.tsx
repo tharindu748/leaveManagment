@@ -7,6 +7,7 @@ import ProtectedRoute from "./protected-route";
 import PublicRoute from "./public-route";
 import Login from "@/features/auth/pages";
 import CalendarLeave from "@/features/calendar/pages";
+import AttendancePage from "@/features/Activities/pages"
 
 const AppRoutes = () => {
   return (
@@ -21,6 +22,7 @@ const AppRoutes = () => {
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={<CalendarLeave />} />
+          <Route path="/EmployeeAttendance" element={<AttendancePage />} />
         </Route>
       </Route>
 
