@@ -17,9 +17,11 @@ import {
   ChevronRight,
   FileType2,
   LayoutDashboard,
+  Activity,
   UserCheck,
 } from "lucide-react";
 import { Link } from "react-router";
+import { title } from "process";
 
 const items = [
   {
@@ -35,6 +37,33 @@ const items = [
     icon: Calendar,
     url: "/calendar",
     items: [],
+  },
+    {
+    title: "Time Managment",
+    isActive: false,
+    icon: Calendar,
+    url: "/EmployeeDetails",
+    items: [],
+  },
+  {
+    title: "Acticity",
+    isActive: false,
+    icon: Activity,
+    url: "#",
+    items: [
+            {
+        title: "Attendance",
+        isActive: false,
+        url: "/EmployeeAttendance",
+      },
+          {
+        title: "Leave",
+        isActive: false,
+        url: "/Leave",
+      },
+      
+    ],
+
   },
   {
     title: "Attendance",
