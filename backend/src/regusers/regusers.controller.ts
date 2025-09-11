@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param } from '@nestjs/common';
 import { RegusersService } from './regusers.service';
 import { CreateRegUserDto, UpdateRegUserDto } from './dto/regusers.dto';
 
-@Controller('users')
+@Controller('regusers')
 export class RegusersController {
   constructor(private readonly usersService: RegusersService) {}
 

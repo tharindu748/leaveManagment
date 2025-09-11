@@ -38,7 +38,7 @@ const items = [
     url: "/calendar",
     items: [],
   },
-    {
+  {
     title: "Time Managment",
     isActive: false,
     icon: Calendar,
@@ -49,21 +49,8 @@ const items = [
     title: "Acticity",
     isActive: false,
     icon: Activity,
-    url: "#",
-    items: [
-            {
-        title: "Attendance",
-        isActive: false,
-        url: "/EmployeeAttendance",
-      },
-          {
-        title: "Leave",
-        isActive: false,
-        url: "/Leave",
-      },
-      
-    ],
-
+    url: "/activity",
+    items: [],
   },
   {
     title: "Attendance",
