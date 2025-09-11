@@ -82,7 +82,106 @@ enum LeaveStatus {
   CANCELLED
 }
 
+// new 
+
 enum HalfdayType {
   MORNING
   AFTERNOON
+}
+
+enum Direction {
+  IN
+  OUT
+}
+
+enum Source {
+  device
+  manual
+}
+
+enum AttendanceStatus {
+  OK
+  ABSENT
+  PARTIAL
+  MANUAL
+}
+
+model RegisteredUser {
+  employeeId   String   @id @map("employee_id")
+  name         String
+  cardNumber   String?  @map("card_number")
+  validFrom    DateTime? @map("valid_from")
+  validTo      DateTime? @map("valid_to")
+  epfNo        String?  @map("epfNo")
+  nic          String?  @map("NIC")
+  jobPosition  String?  @map("jobPosition")
+  lastUpdated  DateTime @default(now()) @updatedAt @map("last_updated")
+
+  @@map("registered_users")
+}
+
+model SyncHistory {
+  id           Int      @id @default(autoincrement())
+  syncTime     DateTime @default(now()) @map("sync_time")
+  totalUsers   Int      @map("total_users")
+  newUsers     Int      @map("new_users")
+  updatedUsers Int      @map("updated_users")
+  status       String
+
+  @@map("sync_history")
+}
+
+model Employee {
+  employeeId String   @id @map("employee_id")
+  fullName   String   @map("full_name")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  punches        Punch[]
+  attendanceDays AttendanceDay[]
+
+  @@map("employees")
+}
+
+model Punch {
+  id                 Int       @id @default(autoincrement())
+  employeeId         String    @map("employee_id")
+  eventTime          DateTime  @map("event_time")
+  direction          Direction
+  source             Source
+  note               String?
+  createdBy          String?   @map("created_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  directionCorrected Boolean   @default(false) @map("direction_corrected")
+  originalDirection  Direction? @map("original_direction")
+  correctedBy        String?   @map("corrected_by")
+  correctionNote     String?   @map("correction_note")
+  correctedAt        DateTime? @map("corrected_at")
+
+  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@unique([employeeId, eventTime, direction, source])
+  @@index([employeeId, eventTime])
+  @@map("punches")
+}
+
+model AttendanceDay {
+  employeeId        String           @map("employee_id")
+  workDate          DateTime         @map("work_date")
+  startTime         String?          @map("start_time")
+  firstIn           String?          @map("first_in")
+  lastOut           String?          @map("last_out")
+  workedSeconds     Int              @default(0) @map("worked_seconds")
+  notWorkingSeconds Int              @default(0) @map("not_working_seconds")
+  overtimeSeconds   Int              @default(0) @map("overtime_seconds")
+  hadManual         Boolean          @default(false) @map("had_manual")
+  status            AttendanceStatus @default(OK)
+  calculatedAt      DateTime         @default(now()) @map("calculated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@id([employeeId, workDate])
+  @@index([workDate])
+  @@map("attendance_day")
 }
