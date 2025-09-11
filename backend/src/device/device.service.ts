@@ -9,8 +9,8 @@ import Digest from 'request-digest';
 import { Direction, Source } from '@prisma/client';
 import { PunchesService } from '../punches/punches.service';
 import { DeviceCredentialsDto } from './dto/device.dto';
-import { RegusersService } from 'src/regusers/regusers.service';
 import { DatabaseService } from 'src/database/database.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class DeviceService implements OnModuleDestroy {
@@ -19,7 +19,7 @@ export class DeviceService implements OnModuleDestroy {
   private lastEventTime: string | null = null;
 
   constructor(
-    private regusersService: RegusersService,
+    private usersService: UsersService,
     private syncHistoryService: SyncHistoryService,
     private punchesService: PunchesService,
     private attendanceService: AttendanceService,
@@ -114,10 +114,10 @@ export class DeviceService implements OnModuleDestroy {
       const validFrom = validInfo.beginTime || undefined;
       const validTo = validInfo.endTime || undefined;
 
-      const existing = await this.prisma.registeredUser.findUnique({
+      const existing = await this.prisma.user.findUnique({
         where: { employeeId: empId },
       });
-      await this.regusersService.upsertRegUser({
+      await this.usersService.upsertRegUser({
         employeeId: empId,
         name,
         cardNumber: cardNo,

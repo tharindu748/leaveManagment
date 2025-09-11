@@ -8,16 +8,26 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
-  password     String
-  name         String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  refreshToken String?
+  id                 Int                  @id @default(autoincrement())
+  email              String               @unique
+  password           String
+  name               String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  refreshToken       String?
+  employeeId         String?              @unique @map("employee_id")
+  cardNumber         String?              @map("card_number")
+  validFrom          DateTime?            @map("valid_from")
+  validTo            DateTime?            @map("valid_to")
+  epfNo              String?              @map("epfNo")
+  nic                String?              @map("NIC")
+  jobPosition        String?              @map("jobPosition")
+  active             Boolean              @default(true)
 
-  leaveRequests Leave_request[]
-  leaveBalances Leave_balance[]
+  leaveRequests      Leave_request[]
+  leaveBalances      Leave_balance[]
+  punches            Punch[]
+  attendanceDays     AttendanceDay[]
 
   @@map("users")
 }
@@ -27,7 +37,7 @@ model Leave_request {
   userId      Int
   approvedBy  String?
   leaveType   LeaveType
-  status      LeaveStatus?          @default(PENDING)
+  status      LeaveStatus?         @default(PENDING)
   reason      String?
   requestedAt DateTime             @default(now())
   approvedAt  DateTime?
@@ -82,8 +92,6 @@ enum LeaveStatus {
   CANCELLED
 }
 
-// new 
-
 enum HalfdayType {
   MORNING
   AFTERNOON
@@ -106,20 +114,6 @@ enum AttendanceStatus {
   MANUAL
 }
 
-model RegisteredUser {
-  employeeId   String   @id @map("employee_id")
-  name         String
-  cardNumber   String?  @map("card_number")
-  validFrom    DateTime? @map("valid_from")
-  validTo      DateTime? @map("valid_to")
-  epfNo        String?  @map("epfNo")
-  nic          String?  @map("NIC")
-  jobPosition  String?  @map("jobPosition")
-  lastUpdated  DateTime @default(now()) @updatedAt @map("last_updated")
-
-  @@map("registered_users")
-}
-
 model SyncHistory {
   id           Int      @id @default(autoincrement())
   syncTime     DateTime @default(now()) @map("sync_time")
@@ -129,19 +123,6 @@ model SyncHistory {
   status       String
 
   @@map("sync_history")
-}
-
-model Employee {
-  employeeId String   @id @map("employee_id")
-  fullName   String   @map("full_name")
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  punches        Punch[]
-  attendanceDays AttendanceDay[]
-
-  @@map("employees")
 }
 
 model Punch {
@@ -159,7 +140,7 @@ model Punch {
   correctionNote     String?   @map("correction_note")
   correctedAt        DateTime? @map("corrected_at")
 
-  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  user User @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
   @@unique([employeeId, eventTime, direction, source])
   @@index([employeeId, eventTime])
@@ -179,7 +160,7 @@ model AttendanceDay {
   status            AttendanceStatus @default(OK)
   calculatedAt      DateTime         @default(now()) @map("calculated_at")
 
-  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  user User @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
   @@id([employeeId, workDate])
   @@index([workDate])

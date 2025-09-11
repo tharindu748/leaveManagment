@@ -18,9 +18,37 @@ export class CreateRegUserDto {
   @IsOptional()
   @IsISO8601({}, { message: 'validTo must be a valid ISO date string' })
   validTo?: string;
+
+  @IsOptional()
+  @IsString()
+  epfNo?: string;
+
+  @IsOptional()
+  @IsString()
+  nic?: string;
+
+  @IsOptional()
+  @IsString()
+  jobPosition?: string;
 }
 
 export class UpdateRegUserDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  cardNumber?: string;
+
+  @IsOptional()
+  @IsISO8601({}, { message: 'validFrom must be a valid ISO date string' })
+  validFrom?: string;
+
+  @IsOptional()
+  @IsISO8601({}, { message: 'validTo must be a valid ISO date string' })
+  validTo?: string;
+
   @IsOptional()
   @IsString()
   epfNo?: string;
