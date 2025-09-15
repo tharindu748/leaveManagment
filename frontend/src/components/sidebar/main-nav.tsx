@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   Activity,
   UserCheck,
+  User,
 } from "lucide-react";
 import { Link } from "react-router";
 import { useAuth } from "@/context/auth-context";
@@ -69,19 +70,42 @@ const items: MenuItem[] = [
     visibleFor: "all",
     items: [
       {
-        title: "Attendance",
-        url: "/attendance",
+        title: "Punches",
+        url: "/punches",
         visibleFor: "all",
       },
       {
-        title: "Results",
-        url: "/results",
+        title: "Attendance2",
+        url: "/attendance2",
         visibleFor: "all",
       },
       {
-        title: "My Summary",
-        url: "/summary",
-        visibleFor: "user",
+        title: "Attendance3",
+        url: "/attendance2",
+        visibleFor: "all",
+      },
+    ],
+  },
+  {
+    title: "User Management",
+    icon: User,
+    url: "#",
+    visibleFor: "all",
+    items: [
+      {
+        title: "Users",
+        url: "/users1",
+        visibleFor: "all",
+      },
+      {
+        title: "Attendance2",
+        url: "/attendance2",
+        visibleFor: "all",
+      },
+      {
+        title: "Attendance3",
+        url: "/attendance2",
+        visibleFor: "all",
       },
     ],
   },

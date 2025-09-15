@@ -1,3 +1,7 @@
+import { DataTable } from "@/components/data-table";
+import PageHeaderTitle from "@/components/page-header/title";
+import PageHeader from "@/components/page-header/wrapper";
+import { Button } from "@/components/ui/button";
 import type { OutletContextType } from "@/layouts/main-layout";
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
@@ -9,27 +13,22 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import PageHeader from "@/components/page-header/wrapper";
-import PageHeaderTitle from "@/components/page-header/title";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { DataTable2 } from "@/components/data-table";
-import { columns, type Punches } from "../components/columns";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import api from "@/api/axios";
+import { columns, type Employee } from "../components/columns";
 
-function PunchesPage() {
+function UsersPage1() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
-  const [data, setData] = useState<Punches[]>([]);
+  const [data, setData] = useState<Employee[]>([]);
 
   const credentialsSchema = z.object({
     ip: z.string().min(1, "Ip address is required"),
     username: z.string().min(1, "Username is required"),
     password: z.string().min(1, "Password is required"),
   });
-
   type CredentialsFormValues = z.infer<typeof credentialsSchema>;
 
   const form = useForm<CredentialsFormValues>({
@@ -54,9 +53,9 @@ function PunchesPage() {
     }
   };
 
-  const fetchPunches = async () => {
+  const fetchUsers = async () => {
     try {
-      const res = await api.get(`/punches/latest`);
+      const res = await api.get(`/users`);
       setData(res.data);
       console.log(res.data);
     } catch (error) {
@@ -64,9 +63,10 @@ function PunchesPage() {
     }
   };
 
-  const startPolling = async () => {
+  const syncUsers = async () => {
     try {
-      const res = await api.post(`/device/start-polling`);
+      const res = await api.post(`/device/sync-users`);
+      fetchUsers();
       console.log(res.data);
     } catch (error) {
       console.log(error);
@@ -74,15 +74,14 @@ function PunchesPage() {
   };
 
   useEffect(() => {
-    setBreadcrumb(["Punches"]);
-    fetchPunches();
+    setBreadcrumb(["Users1"]);
+    fetchUsers();
   }, []);
-
   return (
     <>
       <PageHeader>
         <div>
-          <PageHeaderTitle value="Punches" />
+          <PageHeaderTitle value="Users1" />
         </div>
       </PageHeader>
 
@@ -152,32 +151,25 @@ function PunchesPage() {
             </form>
           </Form>
         </div>
-        <div className="rounded-lg border p-6 mt-3">
-          <h2 className="mb-4 font-semibold">Status</h2>
-        </div>
-        <div className="rounded-lg border p-6 mt-3">
-          <h2 className="mb-4 font-semibold">Latest Punches</h2>
-          <DataTable2 columns={columns} data={data} />
-        </div>
         <div className="flex items-end space-x-4 mt-3">
           <Button
-            onClick={() => startPolling()}
+            onClick={() => syncUsers()}
             type="button"
             className="bg-green-600"
             // disabled
           >
-            Start Polling
-          </Button>
-          <Button type="button" className="bg-red-600" disabled>
-            Stop Polling
+            Sync Users
           </Button>
           <Button type="button" className="bg-blue-600" disabled>
-            Refresh Table
+            Edit User
           </Button>
+        </div>
+        <div className="rounded-lg border p-6 mt-3">
+          <h2 className="mb-4 font-semibold">Registered Users</h2>
+          <DataTable columns={columns} data={data} />
         </div>
       </div>
     </>
   );
 }
-
-export default PunchesPage;
+export default UsersPage1;

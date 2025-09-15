@@ -7,8 +7,9 @@ import ProtectedRoute from "./protected-route";
 import PublicRoute from "./public-route";
 import Login from "@/features/auth/pages";
 import CalendarLeave from "@/features/calendar/pages";
-import EmployeeManagement from "@/features/Attendance/page";
 import ActivityPage from "@/features/Activities/pages";
+import PunchesPage from "@/features/Attendance/page";
+import UsersPage1 from "@/features/users/pages";
 
 const AppRoutes = () => {
   return (
@@ -24,7 +25,8 @@ const AppRoutes = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={<CalendarLeave />} />
           <Route path="/activity" element={<ActivityPage />} />
-          <Route path="/EmployeeDetails" element={<EmployeeManagement />} />
+          <Route path="/punches" element={<PunchesPage />} />
+          <Route path="/users1" element={<UsersPage1 />} />
         </Route>
       </Route>
 
