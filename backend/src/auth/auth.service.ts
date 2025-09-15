@@ -35,23 +35,34 @@ export class AuthService {
       name,
       email,
       password: hashedPassword,
+      isAdmin: true,
     };
 
     const user = await this.usersService.create(createUserDto);
 
-    const tokens = await this.getTokens(user.id, user.email);
+    const tokens = await this.getTokens(
+      user.id,
+      user.email,
+      user.isAdmin,
+      user.employeeId,
+    );
     await this.updateRefreshToken(user.id, tokens.refreshToken);
 
     return {
       ...tokens,
       userId: user.id,
       email: user.email,
+      isAdmin: user.isAdmin,
+      employeeId: user.employeeId,
     };
   }
 
-  async validateUser(
-    loginDto: LoginDto,
-  ): Promise<{ userId: number; email: string } | null> {
+  async validateUser(loginDto: LoginDto): Promise<{
+    userId: number;
+    email: string;
+    isAdmin: boolean;
+    employeeId: string | null;
+  } | null> {
     const user = await this.usersService.findUserByEmail(loginDto.email);
     if (!user) return null;
 
@@ -61,16 +72,33 @@ export class AuthService {
     );
     if (!passwordValid) return null;
 
-    return { userId: user.id, email: user.email };
+    return {
+      userId: user.id,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      employeeId: user.employeeId,
+    };
   }
 
-  async login(user: { userId: number; email: string }): Promise<AuthResultDto> {
-    const tokens = await this.getTokens(user.userId, user.email);
+  async login(user: {
+    userId: number;
+    email: string;
+    isAdmin: boolean;
+    employeeId: string;
+  }): Promise<AuthResultDto> {
+    const tokens = await this.getTokens(
+      user.userId,
+      user.email,
+      user.isAdmin,
+      user.employeeId,
+    );
     await this.updateRefreshToken(user.userId, tokens.refreshToken);
     return {
       ...tokens,
       userId: user.userId,
       email: user.email,
+      isAdmin: user.isAdmin,
+      employeeId: user.employeeId,
     };
   }
 
@@ -95,13 +123,20 @@ export class AuthService {
       throw new UnauthorizedException('Access Denied');
     }
 
-    const tokens = await this.getTokens(user.id, user.email);
+    const tokens = await this.getTokens(
+      user.id,
+      user.email,
+      user.isAdmin,
+      user.employeeId,
+    );
     await this.updateRefreshToken(user.id, tokens.refreshToken);
 
     return {
       ...tokens,
       userId: user.id,
       email: user.email,
+      isAdmin: user.isAdmin,
+      employeeId: user.employeeId,
     };
   }
 
@@ -115,12 +150,19 @@ export class AuthService {
     });
   }
 
-  async getTokens(userId: number, email: string) {
+  async getTokens(
+    userId: number,
+    email: string,
+    isAdmin: boolean,
+    employeeId: string | null,
+  ) {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
         {
           sub: userId,
           email,
+          isAdmin,
+          employeeId,
         },
         {
           secret: process.env.JWT_SECRET,

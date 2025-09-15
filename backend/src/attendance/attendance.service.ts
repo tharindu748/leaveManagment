@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { AttendanceStatus, Direction, Source } from '@prisma/client';
+import {
+  AttendanceDay,
+  AttendanceStatus,
+  Direction,
+  Source,
+} from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { CalculateAttendanceDto } from './dto/attendance.dto';
 
@@ -7,7 +12,7 @@ import { CalculateAttendanceDto } from './dto/attendance.dto';
 export class AttendanceService {
   constructor(private prisma: DatabaseService) {}
 
-  async getAttendanceDay(employeeId: string, workDate: string) {
+  async findAttendanceDay(employeeId: string, workDate: string) {
     try {
       const wd = new Date(workDate);
       return this.prisma.attendanceDay.findUnique({
@@ -15,6 +20,17 @@ export class AttendanceService {
       });
     } catch (e) {
       throw new BadRequestException('Invalid date');
+    }
+  }
+
+  async findAllAttendanceUser(employeeId: string) {
+    try {
+      return await this.prisma.attendanceDay.findMany({
+        where: { employeeId },
+        orderBy: { workDate: 'desc' },
+      });
+    } catch (error) {
+      console.log(error);
     }
   }
 
@@ -318,5 +334,74 @@ export class AttendanceService {
     return new Date(
       Math.max(lo.getTime(), Math.min(hi.getTime(), dt.getTime())),
     );
+  }
+
+  private ymd(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  async recalcUserAllDays(employeeId: string, persistNormalization = true) {
+    if (!employeeId?.trim()) {
+      throw new BadRequestException('employeeId is required');
+    }
+    const uniqueDays = new Set<string>();
+    const pageSize = 2000;
+    let cursor: { id: number } | undefined = undefined;
+
+    for (;;) {
+      const punches = await this.prisma.punch.findMany({
+        where: { employeeId },
+        select: { id: true, eventTime: true },
+        orderBy: { id: 'asc' }, // stable pagination
+        take: pageSize,
+        ...(cursor ? { skip: 1, cursor } : {}),
+      });
+
+      if (!punches.length) break;
+
+      // for (const p of punches) {
+      //   uniqueDays.add(this.ymd(p.eventTime));
+      // }
+      for (const p of punches) uniqueDays.add(this.ymd(new Date(p.eventTime)));
+
+      cursor = { id: punches[punches.length - 1].id };
+      if (punches.length < pageSize) break;
+    }
+
+    // new
+    if (uniqueDays.size === 0) return { employeeId, daysProcessed: 0 };
+
+    // Recalculate day-by-day (sequential to keep DB load predictable)
+    let processed = 0;
+    for (const workDate of Array.from(uniqueDays).sort()) {
+      await this.calculateAttendance(
+        { employeeId, workDate },
+        persistNormalization,
+      );
+      processed++;
+    }
+
+    return { employeeId, daysProcessed: processed };
+  }
+
+  async recalcAllUsersAllDays(persistNormalization = true) {
+    const users = await this.prisma.user.findMany({
+      select: { employeeId: true },
+      where: {
+        active: true,
+        employeeId: { not: null },
+      },
+    });
+
+    const results: Array<{ employeeId: string; daysProcessed: number }> = [];
+    for (const u of users) {
+      const empId = u.employeeId!; // safe due to filter above
+      const res = await this.recalcUserAllDays(empId, persistNormalization);
+      results.push(res);
+    }
+    return results;
   }
 }

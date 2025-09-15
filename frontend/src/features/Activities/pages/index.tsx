@@ -5,54 +5,29 @@ import { DataTable } from "@/components/data-table";
 import { columns, type Calculate } from "../components/columns";
 import PageHeader from "@/components/page-header/wrapper";
 import PageHeaderTitle from "@/components/page-header/title";
-
-async function getData(): Promise<Calculate[]> {
-  return [
-    {
-      Date: "2025-09-01",
-      StartTime: "08:00",
-      LastOut: "16:30",
-      WorkHours: "27000",
-      NotWorkHours: "9000",
-      OverTime: "4000",
-    },
-    {
-      Date: "2025-09-02",
-      StartTime: "08:00",
-      LastOut: "16:30",
-      WorkHours: "27000",
-      NotWorkHours: "9000",
-      OverTime: "4000",
-    },
-    {
-      Date: "2025-09-03",
-      StartTime: "08:00",
-      LastOut: "16:30",
-      WorkHours: "27000",
-      NotWorkHours: "9000",
-      OverTime: "4000",
-    },
-    {
-      Date: "2025-09-04",
-      StartTime: "08:00",
-      LastOut: "16:30",
-      WorkHours: "27000",
-      NotWorkHours: "9000",
-      OverTime: "4000",
-    },
-  ];
-}
+import api from "@/api/axios";
+import { useAuth } from "@/context/auth-context";
 
 function ActivityPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
+  const { user } = useAuth();
   const [data, setData] = useState<Calculate[]>([]);
+
+  const employeeId = user?.employeeId;
+
+  const fetchActivity = async () => {
+    try {
+      const res = await api.get(`/attendance/recalc-all-days/${employeeId}`);
+      setData(res.data);
+      console.log(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   useEffect(() => {
     setBreadcrumb(["Activity"]);
-
-    getData().then((res) => {
-      setData(res);
-    });
+    fetchActivity();
   }, []);
 
   return (

@@ -2,5 +2,7 @@ export class AuthResultDto {
   accessToken: string;
   refreshToken: string;
   userId: number;
-  email: string; // ✅ required
+  email: string;
+  isAdmin: boolean;
+  employeeId: string | null;
 }

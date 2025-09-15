@@ -5,12 +5,12 @@ import {
 } from '@nestjs/common';
 import { SyncHistoryService } from '../sync-history/sync-history.service';
 import { AttendanceService } from '../attendance/attendance.service';
-import Digest from 'request-digest';
-import { Direction, Source } from '@prisma/client';
 import { PunchesService } from '../punches/punches.service';
 import { DeviceCredentialsDto } from './dto/device.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { UsersService } from 'src/users/users.service';
+import DigestFetch from 'digest-fetch';
+import { Direction } from '@prisma/client';
 
 @Injectable()
 export class DeviceService implements OnModuleDestroy {
@@ -34,11 +34,20 @@ export class DeviceService implements OnModuleDestroy {
     this.credentials = creds;
   }
 
+  private getClient() {
+    if (!this.credentials) throw new BadGatewayException('Credentials not set');
+    return new DigestFetch(
+      this.credentials.username,
+      this.credentials.password,
+    );
+  }
+
   async fetchUsersFromDevice() {
     if (!this.credentials) throw new BadGatewayException('Credentials not set');
-    const { ip, username, password } = this.credentials;
-    const digestRequest = Digest(username, password);
-    const url = '/ISAPI/AccessControl/UserInfo/Search?format=json';
+    const { ip } = this.credentials;
+    const client = this.getClient();
+    const url = `http://${ip}/ISAPI/AccessControl/UserInfo/Search?format=json`;
+
     const searchData = {
       UserInfoSearchCond: {
         searchID: '1',
@@ -47,23 +56,17 @@ export class DeviceService implements OnModuleDestroy {
       },
     };
 
-    return new Promise((resolve, reject) => {
-      digestRequest.request(
-        {
-          host: ip,
-          path: url,
-          port: 80,
-          method: 'POST',
-          json: true,
-          body: searchData,
-          headers: { 'Content-Type': 'application/json' },
-        },
-        (err, res) => {
-          if (err) reject(err);
-          else resolve(res.body);
-        },
-      );
-    });
+    try {
+      const res = await client.fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(searchData),
+      });
+      if (!res.ok) throw new Error(`Device responded ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      throw new BadGatewayException(`Fetch users failed: ${e.message}`);
+    }
   }
 
   async syncUsers() {
@@ -90,6 +93,7 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
+
     const userList = usersData.UserInfoSearch.UserInfo || [];
     const totalMatches = usersData.UserInfoSearch.totalMatches || 0;
     if (!userList.length) {
@@ -102,8 +106,10 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
+
     let newCount = 0,
       updatedCount = 0;
+
     for (const user of userList) {
       const empId = user.employeeNo;
       if (!empId) continue;
@@ -127,6 +133,7 @@ export class DeviceService implements OnModuleDestroy {
       if (existing) updatedCount++;
       else newCount++;
     }
+
     const status = 'Success';
     await this.syncHistoryService.addRecord({
       totalUsers: totalMatches,
@@ -134,6 +141,7 @@ export class DeviceService implements OnModuleDestroy {
       updatedUsers: updatedCount,
       status,
     });
+
     return {
       total: totalMatches,
       new: newCount,
@@ -158,41 +166,34 @@ export class DeviceService implements OnModuleDestroy {
 
   private async pollEvents() {
     if (!this.credentials) return;
-    const { ip, username, password } = this.credentials;
-    const digestRequest = Digest(username, password);
-    const url = '/ISAPI/AccessControl/AcsEvent?format=json';
-    const acsEventCond = {
+    const { ip } = this.credentials;
+    const client = this.getClient();
+    const url = `http://${ip}/ISAPI/AccessControl/AcsEvent?format=json`;
+
+    const acsEventCond: any = {
       searchID: 'poll1',
       searchResultPosition: 0,
       maxResults: 10,
       major: 5,
       minor: 0,
-      ...(this.lastEventTime ? { startTime: this.lastEventTime } : {}),
     };
+    if (this.lastEventTime) {
+      acsEventCond.startTime = this.lastEventTime;
+    }
     const cond = { AcsEventCond: acsEventCond };
 
-    if (this.lastEventTime) cond.AcsEventCond.startTime = this.lastEventTime;
-
-    let data;
+    let data: any;
     try {
-      const res = await new Promise((resolve, reject) => {
-        digestRequest.request(
-          {
-            host: ip,
-            path: url,
-            port: 80,
-            method: 'POST',
-            json: true,
-            body: cond,
-            headers: { 'Content-Type': 'application/json' },
-          },
-          (err, res) => {
-            if (err) reject(err);
-            else resolve(res);
-          },
-        );
+      const res = await client.fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cond),
       });
-      data = (res as any).body;
+      if (!res.ok) {
+        console.error('Polling error: Device responded', res.status);
+        return;
+      }
+      data = await res.json();
     } catch (e) {
       console.error('Polling error:', e);
       return;
@@ -204,16 +205,19 @@ export class DeviceService implements OnModuleDestroy {
 
     const events = acs.InfoList;
     let newMaxTime = this.lastEventTime;
-    let insertedEmployees = new Set<string>();
+    const insertedEmployees = new Set<string>();
+
     for (const event of events) {
       const empId = event.employeeNoString;
       if (!empId) continue;
+
       const rawTime = event.time;
       const normalizedTimeStr = rawTime
         ? rawTime.slice(0, 19).replace('T', ' ')
         : '';
       const normalizedTime = new Date(normalizedTimeStr);
       if (isNaN(normalizedTime.getTime())) continue;
+
       const attendanceStatus = event.attendanceStatus || 'Unknown';
       let direction: Direction = Direction.IN;
       if (
@@ -227,10 +231,11 @@ export class DeviceService implements OnModuleDestroy {
       ) {
         direction = Direction.OUT;
       }
+
       const row = await this.punchesService.insertPunch({
         employeeId: empId,
         eventTime: normalizedTimeStr,
-        direction: direction,
+        direction,
         source: 'device',
       });
       if (row) {
@@ -240,11 +245,12 @@ export class DeviceService implements OnModuleDestroy {
         newMaxTime = rawTime;
       }
     }
+
     if (newMaxTime && newMaxTime !== this.lastEventTime) {
       this.lastEventTime = newMaxTime;
     }
-    // Recalc attendance for affected employees
-    const workDate = new Date().toISOString().slice(0, 10); // Assume current day, or extract from events
+
+    const workDate = new Date().toISOString().slice(0, 10);
     for (const empId of insertedEmployees) {
       await this.attendanceService.calculateAttendance({
         employeeId: empId,

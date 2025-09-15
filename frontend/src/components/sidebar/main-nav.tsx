@@ -15,110 +15,141 @@ import {
 import {
   Calendar,
   ChevronRight,
-  FileType2,
   LayoutDashboard,
   Activity,
   UserCheck,
 } from "lucide-react";
 import { Link } from "react-router";
-import { title } from "process";
+import { useAuth } from "@/context/auth-context";
 
-const items = [
+type VisibleFor = "admin" | "user" | "all";
+
+interface MenuItem {
+  title: string;
+  icon?: any;
+  url: string;
+  items?: MenuItem[];
+  visibleFor: VisibleFor;
+  isActive?: boolean;
+}
+
+const items: MenuItem[] = [
   {
     title: "Dashboard",
-    isActive: false,
     icon: LayoutDashboard,
     url: "/dashboard",
     items: [],
+    visibleFor: "all",
   },
   {
     title: "Go To Calendar",
-    isActive: false,
     icon: Calendar,
     url: "/calendar",
     items: [],
+    visibleFor: "all",
   },
   {
-    title: "Time Managment",
-    isActive: false,
+    title: "Time Management",
     icon: Calendar,
     url: "/EmployeeDetails",
     items: [],
+    visibleFor: "all",
   },
   {
-    title: "Acticity",
-    isActive: false,
+    title: "Activity",
     icon: Activity,
     url: "/activity",
     items: [],
+    visibleFor: "all",
   },
   {
     title: "Attendance",
-    isActive: false,
     icon: UserCheck,
     url: "#",
+    visibleFor: "all",
     items: [
       {
         title: "Attendance",
-        isActive: false,
         url: "/attendance",
+        visibleFor: "all",
       },
       {
         title: "Results",
-        isActive: false,
         url: "/results",
+        visibleFor: "all",
+      },
+      {
+        title: "My Summary",
+        url: "/summary",
+        visibleFor: "user",
       },
     ],
   },
 ];
 
+const canSee = (visibleFor: VisibleFor, isAdmin?: boolean) => {
+  if (visibleFor === "all") return true;
+  if (visibleFor === "admin" && isAdmin) return true;
+  if (visibleFor === "user" && !isAdmin) return true;
+  return false;
+};
+
 function MainNav() {
+  const { user } = useAuth();
+  const isAdmin = user?.isAdmin;
+
   return (
     <SidebarGroup>
       <SidebarMenu>
-        {items.map((item) => (
-          <Collapsible
-            key={item.title}
-            asChild
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-          >
-            <SidebarMenuItem>
-              {item.items.length ? (
-                <>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton>
-                      {item.icon && <item.icon />}
-                      <span className="whitespace-nowrap">{item.title}</span>
-                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
+        {items
+          .filter((item) => canSee(item.visibleFor, isAdmin))
+          .map((item) => (
+            <Collapsible
+              key={item.title}
+              asChild
+              defaultOpen={item.isActive}
+              className="group/collapsible"
+            >
+              <SidebarMenuItem>
+                {item.items && item.items.length > 0 ? (
+                  <>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton>
+                        {item.icon && <item.icon />}
+                        <span className="whitespace-nowrap">{item.title}</span>
+                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
 
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {item.items?.map((subItem) => (
-                        <SidebarMenuSubItem key={subItem.title}>
-                          <SidebarMenuSubButton asChild>
-                            <Link to={subItem.url}>
-                              <span>{subItem.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </>
-              ) : (
-                <SidebarMenuButton>
-                  {item.icon && <item.icon />}
-                  <Link className="w-full whitespace-nowrap" to={item.url}>
-                    {item.title}
-                  </Link>
-                </SidebarMenuButton>
-              )}
-            </SidebarMenuItem>
-          </Collapsible>
-        ))}
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {item.items
+                          .filter((subItem) =>
+                            canSee(subItem.visibleFor, isAdmin)
+                          )
+                          .map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton asChild>
+                                <Link to={subItem.url}>
+                                  <span>{subItem.title}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </>
+                ) : (
+                  <SidebarMenuButton>
+                    {item.icon && <item.icon />}
+                    <Link className="w-full whitespace-nowrap" to={item.url}>
+                      {item.title}
+                    </Link>
+                  </SidebarMenuButton>
+                )}
+              </SidebarMenuItem>
+            </Collapsible>
+          ))}
       </SidebarMenu>
     </SidebarGroup>
   );

@@ -1,4 +1,5 @@
 import { type ColumnDef } from "@tanstack/react-table";
+import { formatSeconds } from "@/utils/time";
 
 export type Calculate = {
   Date: string;
@@ -11,51 +12,61 @@ export type Calculate = {
 
 export const columns: ColumnDef<Calculate>[] = [
   {
-    accessorKey: "Date",
+    accessorKey: "workDate",
     header: "Date",
     cell: ({ row }) => {
-      const channels = row.getValue("Date") as string;
-      return <div className="flex flex-wrap gap-1">{channels}</div>;
+      const value = row.getValue("workDate") as string;
+      const date = new Date(value);
+      return (
+        <div className="flex flex-wrap gap-1">
+          {date.toLocaleDateString("en-CA")}
+        </div>
+      );
     },
   },
   {
-    accessorKey: "StartTime",
+    accessorKey: "firstIn",
     header: "Start Time",
-    cell: ({ row }) => {
-      const channels = row.getValue("StartTime") as string;
-      return <div className="flex flex-wrap gap-1">{channels}</div>;
-    },
+    cell: ({ row }) => (
+      <div className="flex flex-wrap gap-1">
+        {row.getValue("firstIn") as string}
+      </div>
+    ),
   },
   {
-    accessorKey: "LastOut",
+    accessorKey: "lastOut",
     header: "Last Out",
-    cell: ({ row }) => {
-      const channels = row.getValue("LastOut") as string;
-      return <div className="flex flex-wrap gap-1">{channels}</div>;
-    },
+    cell: ({ row }) => (
+      <div className="flex flex-wrap gap-1">
+        {row.getValue("lastOut") as string}
+      </div>
+    ),
   },
   {
-    accessorKey: "WorkHours",
+    accessorKey: "workedSeconds",
     header: "Work Hours",
-    cell: ({ row }) => {
-      const channels = row.getValue("WorkHours") as string;
-      return <div className="flex flex-wrap gap-1">{channels}</div>;
-    },
+    cell: ({ row }) => (
+      <div className="flex flex-wrap gap-1">
+        {formatSeconds(Number(row.getValue("workedSeconds")))}
+      </div>
+    ),
   },
   {
-    accessorKey: "NotWorkHours",
+    accessorKey: "notWorkingSeconds",
     header: "Not Work Hours",
-    cell: ({ row }) => {
-      const channels = row.getValue("NotWorkHours") as string;
-      return <div className="flex flex-wrap gap-1">{channels}</div>;
-    },
+    cell: ({ row }) => (
+      <div className="flex flex-wrap gap-1">
+        {formatSeconds(Number(row.getValue("notWorkingSeconds")))}
+      </div>
+    ),
   },
   {
-    accessorKey: "OverTime",
+    accessorKey: "overtimeSeconds",
     header: "OverTime",
-    cell: ({ row }) => {
-      const channels = row.getValue("OverTime") as string;
-      return <div className="flex flex-wrap gap-1">{channels}</div>;
-    },
+    cell: ({ row }) => (
+      <div className="flex flex-wrap gap-1">
+        {formatSeconds(Number(row.getValue("overtimeSeconds")))}
+      </div>
+    ),
   },
 ];
