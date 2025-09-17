@@ -7,35 +7,51 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
 import api from "@/api/axios";
 import { columns, type Employee } from "../components/columns";
+import EditUserDialog from "../components/edit-user-dialog";
+
+export type User = {
+  id: string;
+  name: string;
+  email?: string;
+  epfNo?: string;
+  nic?: string;
+  jobPosition?: string;
+};
 
 function UsersPage1() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const [data, setData] = useState<Employee[]>([]);
+  const [editUserToggle, setEditUserToggle] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const fetchUsers = async () => {
     try {
       const res = await api.get(`/users`);
       setData(res.data);
-      console.log(res.data);
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   };
 
   const syncUsers = async () => {
     try {
-      const res = await api.post(`/device/sync-users`);
+      await api.post(`/device/sync-users`);
       fetchUsers();
-      console.log(res.data);
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
+  };
+
+  const handleEdit = (user: User) => {
+    setSelectedUser(user);
+    setEditUserToggle(true);
   };
 
   useEffect(() => {
     setBreadcrumb(["Users1"]);
     fetchUsers();
   }, []);
+
   return (
     <>
       <PageHeader>
@@ -46,24 +62,30 @@ function UsersPage1() {
 
       <div className="rounded-lg border p-6">
         <div className="flex items-end space-x-4 mt-3">
-          <Button
-            onClick={() => syncUsers()}
-            type="button"
-            className="bg-green-600"
-            // disabled
-          >
+          <Button onClick={syncUsers} type="button" className="bg-green-600">
             Sync Users
           </Button>
-          <Button type="button" className="bg-blue-600" disabled>
-            Edit User
-          </Button>
         </div>
+
         <div className="rounded-lg border p-6 mt-3">
           <h2 className="mb-4 font-semibold">Registered Users</h2>
-          <DataTable columns={columns} data={data} />
+          <DataTable columns={columns(handleEdit)} data={data} />
         </div>
       </div>
+
+      {editUserToggle && selectedUser && (
+        <EditUserDialog
+          open={editUserToggle}
+          onOpenChange={(v) => {
+            setEditUserToggle(v);
+            if (!v) setSelectedUser(null);
+          }}
+          onSaved={fetchUsers}
+          user={selectedUser}
+        />
+      )}
     </>
   );
 }
+
 export default UsersPage1;

@@ -1,67 +1,49 @@
 import { type ColumnDef } from "@tanstack/react-table";
+import { Button } from "@/components/ui/button";
+import type { User } from "../pages";
+// import { User } from "../pages"; // <- import User type
 
 export type Employee = {
-  Date: string;
-  StartTime: string;
-  LastOut: string;
-  WorkHours: string;
-  NotWorkHours: string;
-  OverTime: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  efpNo: string;
+  nic: string;
+  jobPosition: string;
 };
 
-export const columns: ColumnDef<Employee>[] = [
+export const columns = (
+  onEdit: (user: User) => void
+): ColumnDef<Employee>[] => [
+  { accessorKey: "employeeId", header: "Employee Id" },
+  { accessorKey: "name", header: "Name" },
+  { accessorKey: "email", header: "Email" },
+  { accessorKey: "efpNo", header: "EPF No" },
+  { accessorKey: "nic", header: "NIC" },
+  { accessorKey: "jobPosition", header: "Job Position" },
   {
-    accessorKey: "employeeId",
-    header: "Employee Id",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.getValue("employeeId") as string}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "name",
-    header: "Name",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.getValue("name") as string}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.getValue("email") as string}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "efpNo",
-    header: "EPF No",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.getValue("efpNo") as string}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "nic",
-    header: "NIC",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.getValue("nic") as string}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "jobPosition",
-    header: "Job Position",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.getValue("jobPosition") as string}
-      </div>
-    ),
+    id: "actions",
+    header: "Actions",
+    cell: ({ row }) => {
+      const r = row.original;
+      return (
+        <Button
+          size="sm"
+          className="bg-black text-white"
+          onClick={() =>
+            onEdit({
+              id: r.employeeId,
+              name: r.name,
+              email: r.email,
+              epfNo: r.efpNo,
+              nic: r.nic,
+              jobPosition: r.jobPosition,
+            })
+          }
+        >
+          Edit
+        </Button>
+      );
+    },
   },
 ];

@@ -58,7 +58,18 @@ function PunchesPage() {
 
       <div className="rounded-lg border p-6">
         <div className="rounded-lg border p-6 mt-3">
-          <h2 className="mb-4 font-semibold">Status</h2>
+          <h2 className="font-semibold">
+            Status:{" "}
+            <span
+              className={`${
+                isPolling
+                  ? "bg-green-200 border-green-600 text-green-600"
+                  : "bg-red-200 border-red-600 text-red-600"
+              }   border  font-semibold pt-1 pb-2 px-3  rounded-lg`}
+            >
+              {isPolling ? "Running" : "Stopped"}
+            </span>
+          </h2>
         </div>
         <div className="rounded-lg border p-6 mt-3">
           <h2 className="mb-4 font-semibold">Latest Punches</h2>
