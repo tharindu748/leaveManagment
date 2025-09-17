@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+
 function AddManualPunchDialog({
   open,
   onOpenChange,
@@ -40,23 +41,27 @@ function AddManualPunchDialog({
   open: boolean;
   onOpenChange: (value: boolean) => void;
   onSaved?: () => void;
-  currentUserId: string;
+  currentUserId?: number;
 }) {
   const punchSchema = z.object({
     employeeId: z.string().min(1, "Employee ID is required"),
     name: z.string().min(1, "Name is required"),
-    direction: z.enum(["IN", "OUT"], {
-      required_error: "Direction is required",
-    }),
+    direction: z.enum(["IN", "OUT"]),
     note: z.string().optional(),
-    date: z.date({ required_error: "Date is required" }),
+    date: z.date().refine((val) => !!val, {
+      message: "Date is required",
+    }),
     time: z
-      .string({ required_error: "Time is required" })
+      .string()
+      .min(1, "Time is required")
       .regex(/^\d{2}:\d{2}$/, "Time must be HH:MM"),
-    source: z.literal("manual").default("manual"),
+    source: z.literal("manual"),
   });
+
   type PunchFormValues = z.infer<typeof punchSchema>;
+
   const [loadingName, setLoadingName] = useState(false);
+
   const form = useForm<PunchFormValues>({
     resolver: zodResolver(punchSchema),
     defaultValues: {
@@ -65,31 +70,33 @@ function AddManualPunchDialog({
       direction: "IN",
       note: "",
       date: new Date(),
-      time: new Date().toTimeString().slice(0, 5), // current HH:MM
+      time: new Date().toTimeString().slice(0, 5),
       source: "manual",
     },
   });
+
   async function fetchEmployeeName(employeeId: string) {
     if (!employeeId) return;
     try {
       setLoadingName(true);
       const res = await api.get(`/users/${encodeURIComponent(employeeId)}`);
       const name = res?.data?.name ?? "";
-      if (name) {
-        form.setValue("name", name, { shouldValidate: true });
-      }
+      form.setValue("name", name, { shouldValidate: true });
     } catch (error) {
       console.error("Failed to fetch employee name", error);
+      form.setValue("name", "");
     } finally {
       setLoadingName(false);
     }
   }
+
   function buildEventDateISO(date: Date, time: string) {
     const [h, m] = time.split(":").map(Number);
     const d = new Date(date);
     d.setHours(h ?? 0, m ?? 0, 0, 0);
     return d.toISOString();
   }
+
   async function onSubmit(values: PunchFormValues) {
     form.clearErrors("root.serverError");
     try {
@@ -103,9 +110,12 @@ function AddManualPunchDialog({
         eventTime,
         createdBy: currentUserId,
       };
+
       await api.post("/punches", payload);
+
       onSaved?.();
       onOpenChange(false);
+
       form.reset({
         employeeId: "",
         name: "",
@@ -123,6 +133,7 @@ function AddManualPunchDialog({
       });
     }
   }
+
   return (
     <Dialog
       open={open}
@@ -156,7 +167,7 @@ function AddManualPunchDialog({
                 Close
               </Button>
               <Button
-                className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                className="gap-2 bg-black text-white"
                 type="submit"
                 form="punch-form"
               >
@@ -166,6 +177,7 @@ function AddManualPunchDialog({
             </div>
           </div>
         </DialogHeader>
+
         <div className="p-4">
           <Form {...form}>
             <form
@@ -174,7 +186,6 @@ function AddManualPunchDialog({
               className="space-y-6"
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                {/* Employee ID */}
                 <FormField
                   control={form.control}
                   name="employeeId"
@@ -196,7 +207,7 @@ function AddManualPunchDialog({
                     </FormItem>
                   )}
                 />
-                {/* Name (auto-filled) */}
+
                 <FormField
                   control={form.control}
                   name="name"
@@ -210,16 +221,17 @@ function AddManualPunchDialog({
                       </FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Auto-filled from Employee ID, or type manually"
                           type="text"
+                          readOnly
                           {...field}
+                          placeholder="Auto-filled from Employee ID"
                         />
                       </FormControl>
                       <FormMessage className="text-xs" />
                     </FormItem>
                   )}
                 />
-                {/* Direction dropdown */}
+
                 <FormField
                   control={form.control}
                   name="direction"
@@ -246,26 +258,25 @@ function AddManualPunchDialog({
                     </FormItem>
                   )}
                 />
-                {/* Source (always manual) */}
+
                 <FormField
                   control={form.control}
                   name="source"
-                  render={({ field }) => (
+                  render={() => (
                     <FormItem>
                       <FormLabel>Source</FormLabel>
                       <FormControl>
                         <Input value="manual" readOnly />
                       </FormControl>
-                      <FormMessage className="text-xs" />
                     </FormItem>
                   )}
                 />
-                {/* Date picker (shadcn calendar) */}
+
                 <FormField
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem className="sm:col-span-1">
+                    <FormItem>
                       <FormLabel>Date</FormLabel>
                       <FormControl>
                         <Popover>
@@ -296,12 +307,12 @@ function AddManualPunchDialog({
                     </FormItem>
                   )}
                 />
-                {/* Time picker */}
+
                 <FormField
                   control={form.control}
                   name="time"
                   render={({ field }) => (
-                    <FormItem className="sm:col-span-1">
+                    <FormItem>
                       <FormLabel>Time</FormLabel>
                       <FormControl>
                         <Input type="time" step={60} {...field} />
@@ -311,7 +322,7 @@ function AddManualPunchDialog({
                   )}
                 />
               </div>
-              {/* Note */}
+
               <FormField
                 control={form.control}
                 name="note"
@@ -321,10 +332,10 @@ function AddManualPunchDialog({
                     <FormControl>
                       <Textarea placeholder="Type the note here" {...field} />
                     </FormControl>
-                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
+
               {form.formState.errors.root?.serverError && (
                 <div className="text-center text-xs text-destructive">
                   {form.formState.errors.root.serverError.message}
@@ -337,4 +348,5 @@ function AddManualPunchDialog({
     </Dialog>
   );
 }
+
 export default AddManualPunchDialog;

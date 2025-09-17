@@ -43,6 +43,7 @@ import {
 } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import AddManualPunchDialog from "../components/add-manual-punch-dialog";
+import { useAuth } from "@/context/auth-context";
 
 const filterSchema = z.object({
   employeeId: z.string().min(1, "Employee ID is required"),
@@ -61,6 +62,7 @@ export type User = {
   epfNo?: string;
   nic?: string;
   jobPosition?: string;
+  currentUserId: number | undefined;
 };
 
 type FilterFormValues = z.infer<typeof filterSchema>;
@@ -79,11 +81,13 @@ function useIsMobile() {
 }
 
 function UserPunchesPage() {
+  const { user } = useAuth();
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const [data, setData] = useState<Punches[]>([]);
   const [open, setOpen] = useState(false);
   const [addPunchToggle, setAddPunchToggle] = useState(false);
   const isMobile = useIsMobile();
+  const currentUserId = user?.id;
 
   const form = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
@@ -352,6 +356,7 @@ function UserPunchesPage() {
           open={addPunchToggle}
           onOpenChange={setAddPunchToggle}
           onSaved={fetchPunches}
+          currentUserId={currentUserId}
         />
       )}
     </>
