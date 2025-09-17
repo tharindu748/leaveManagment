@@ -81,40 +81,6 @@ model Leave_policy {
   @@map("leave_policies")
 }
 
-enum LeaveType {
-  ANNUAL
-  CASUAL
-}
-
-enum LeaveStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
-enum HalfdayType {
-  MORNING
-  AFTERNOON
-}
-
-enum Direction {
-  IN
-  OUT
-}
-
-enum Source {
-  device
-  manual
-}
-
-enum AttendanceStatus {
-  OK
-  ABSENT
-  PARTIAL
-  MANUAL
-}
-
 model SyncHistory {
   id           Int      @id @default(autoincrement())
   syncTime     DateTime @default(now()) @map("sync_time")
@@ -179,4 +145,51 @@ model DeviceConfig {
   updatedAt      DateTime @updatedAt
 
   @@map("device_config")
+}
+
+model AttendanceConfig {
+  id          Int      @id @default(autoincrement())
+  workStart   DateTime
+  workEnd     DateTime
+  otEnd       DateTime
+  earlyStart  DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("attendance_config")
+}
+
+
+enum LeaveType {
+  ANNUAL
+  CASUAL
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum HalfdayType {
+  MORNING
+  AFTERNOON
+}
+
+enum Direction {
+  IN
+  OUT
+}
+
+enum Source {
+  device
+  manual
+}
+
+enum AttendanceStatus {
+  OK
+  ABSENT
+  PARTIAL
+  MANUAL
 }
