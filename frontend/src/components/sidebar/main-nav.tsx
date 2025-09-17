@@ -19,6 +19,7 @@ import {
   Activity,
   UserCheck,
   User,
+  Settings,
 } from "lucide-react";
 import { Link } from "react-router";
 import { useAuth } from "@/context/auth-context";
@@ -105,6 +106,19 @@ const items: MenuItem[] = [
       {
         title: "Attendance3",
         url: "/attendance2",
+        visibleFor: "all",
+      },
+    ],
+  },
+  {
+    title: "Settings",
+    icon: Settings,
+    url: "#",
+    visibleFor: "all",
+    items: [
+      {
+        title: "Device Configuration",
+        url: "/device-config",
         visibleFor: "all",
       },
     ],
