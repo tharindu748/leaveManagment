@@ -1,5 +1,9 @@
 // src/punches/punches.service.ts
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Direction, Source } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePunchDto } from './dto/punches.dto';
@@ -83,5 +87,51 @@ export class PunchesService {
     });
     if (!last) return Direction.IN;
     return last.direction === Direction.IN ? Direction.OUT : Direction.IN;
+  }
+
+  async getPunchesByEmployeeId(
+    employeeId: string,
+    eventTime?: Date | { from: Date; to: Date },
+  ) {
+    try {
+      let dateFilter: any = undefined;
+
+      if (eventTime instanceof Date) {
+        const start = new Date(eventTime);
+        start.setHours(0, 0, 0, 0);
+
+        const end = new Date(eventTime);
+        end.setHours(23, 59, 59, 999);
+
+        dateFilter = {
+          gte: start,
+          lte: end,
+        };
+      } else if (eventTime?.from && eventTime?.to) {
+        // Date range
+        dateFilter = {
+          gte: new Date(eventTime.from),
+          lte: new Date(eventTime.to),
+        };
+      }
+
+      return await this.prisma.punch.findMany({
+        where: {
+          employeeId,
+          ...(dateFilter && { correctEventTime: dateFilter }),
+        },
+        orderBy: { correctEventTime: 'desc' },
+        include: {
+          user: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      throw new Error('Failed to fetch punches');
+    }
   }
 }

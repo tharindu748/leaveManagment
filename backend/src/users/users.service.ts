@@ -20,6 +20,12 @@ export class UsersService {
     });
   }
 
+  async findUserByEmployeeId(employeeId: string): Promise<User | null> {
+    return this.databaseService.user.findUnique({
+      where: { employeeId },
+    });
+  }
+
   async create(createUserDto: CreateUserDto): Promise<User> {
     return this.databaseService.user.create({
       data: {

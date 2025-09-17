@@ -44,7 +44,7 @@ function PunchesPage() {
   };
 
   useEffect(() => {
-    setBreadcrumb(["Punches"]);
+    setBreadcrumb(["Attendance", "Punches"]);
     fetchPunches();
   }, []);
 

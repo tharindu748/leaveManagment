@@ -42,7 +42,6 @@ export const columns: ColumnDef<Punches>[] = [
       );
     },
   },
-
   {
     accessorKey: "direction",
     header: "Direction",

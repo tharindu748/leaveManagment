@@ -76,8 +76,8 @@ const items: MenuItem[] = [
         visibleFor: "all",
       },
       {
-        title: "Attendance2",
-        url: "/attendance2",
+        title: "Users",
+        url: "/attendance/users",
         visibleFor: "all",
       },
       {

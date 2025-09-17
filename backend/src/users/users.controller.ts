@@ -12,6 +12,11 @@ export class UsersController {
     return this.usersService.listUsers();
   }
 
+  @Get(':employeeId')
+  findOne(@Param('employeeId') employeeId: string) {
+    return this.usersService.findUserByEmployeeId(employeeId);
+  }
+
   @Post()
   create(@Body() dto: CreateRegUserDto) {
     return this.usersService.upsertRegUser(dto);
