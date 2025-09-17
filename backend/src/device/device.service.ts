@@ -36,37 +36,54 @@ export class DeviceService implements OnModuleDestroy {
 
   private getClient() {
     if (!this.credentials) throw new BadGatewayException('Credentials not set');
-    return new DigestFetch(
+    const client = new DigestFetch(
       this.credentials.username,
       this.credentials.password,
     );
+
+    // Add custom options if needed
+    return client;
+  }
+
+  private async withAuthRetry(requestFn: () => Promise<any>, maxRetries = 3) {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await requestFn();
+      } catch (error) {
+        if (error.status === 401 && i < maxRetries - 1) {
+          console.log('Authentication failed, retrying with new client...');
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   async fetchUsersFromDevice() {
-    if (!this.credentials) throw new BadGatewayException('Credentials not set');
-    const { ip } = this.credentials;
-    const client = this.getClient();
-    const url = `http://${ip}/ISAPI/AccessControl/UserInfo/Search?format=json`;
+    return this.withAuthRetry(async () => {
+      if (!this.credentials)
+        throw new BadGatewayException('Credentials not set');
+      const { ip } = this.credentials;
+      const client = this.getClient(); // Get fresh client
+      const url = `http://${ip}/ISAPI/AccessControl/UserInfo/Search?format=json`;
 
-    const searchData = {
-      UserInfoSearchCond: {
-        searchID: '1',
-        searchResultPosition: 0,
-        maxResults: 2000,
-      },
-    };
+      const searchData = {
+        UserInfoSearchCond: {
+          searchID: '1',
+          searchResultPosition: 0,
+          maxResults: 2000,
+        },
+      };
 
-    try {
       const res = await client.fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(searchData),
       });
+
       if (!res.ok) throw new Error(`Device responded ${res.status}`);
       return await res.json();
-    } catch (e) {
-      throw new BadGatewayException(`Fetch users failed: ${e.message}`);
-    }
+    });
   }
 
   async syncUsers() {
