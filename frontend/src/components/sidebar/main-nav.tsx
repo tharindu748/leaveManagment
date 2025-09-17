@@ -121,6 +121,11 @@ const items: MenuItem[] = [
         url: "/device-config",
         visibleFor: "all",
       },
+      {
+        title: "Time Configuration",
+        url: "/time-config",
+        visibleFor: "all",
+      },
     ],
   },
 ];

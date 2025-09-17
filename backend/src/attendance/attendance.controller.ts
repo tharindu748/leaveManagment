@@ -1,6 +1,15 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  Patch,
+} from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { CalculateAttendanceDto } from './dto/attendance.dto';
+import { UpdateAttendanceConfigDto } from './dto/update-attendance-config.dto';
 
 @Controller('attendance')
 export class AttendanceController {
@@ -38,5 +47,15 @@ export class AttendanceController {
   @Post('recalc-all-users')
   recalcAllUsersAllDays(@Query('persistNormalization') persist = 'true') {
     return this.attendanceService.recalcAllUsersAllDays(persist !== 'false');
+  }
+
+  @Get('config')
+  async getConfig() {
+    return this.attendanceService.getAttendanceConfig();
+  }
+
+  @Patch('config')
+  async updateConfig(@Body() dto: UpdateAttendanceConfigDto) {
+    return this.attendanceService.updateAttendanceConfig(dto);
   }
 }

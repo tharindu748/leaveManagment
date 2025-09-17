@@ -13,6 +13,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { UsersService } from 'src/users/users.service';
 import { Direction } from '@prisma/client';
 import { DeviceConfigService } from './device-config.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class DeviceService implements OnModuleDestroy {
@@ -141,6 +142,7 @@ export class DeviceService implements OnModuleDestroy {
       const existing = await this.prisma.user.findUnique({
         where: { employeeId: empId },
       });
+
       await this.usersService.upsertRegUser({
         employeeId: empId,
         name,

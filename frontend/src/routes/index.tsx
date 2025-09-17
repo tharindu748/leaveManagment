@@ -11,7 +11,8 @@ import ActivityPage from "@/features/Activities/pages";
 import PunchesPage from "@/features/Attendance/page";
 import UsersPage1 from "@/features/users/pages";
 import DeviceConfigPage from "@/features/settings/pages";
-import UserPunchesPage from "@/features/Attendance/page/user-punches";
+import UserPunchesPage from "@/features/Attendance/page/user-punches-page";
+import TimeConfigPage from "@/features/settings/pages/time-config-page";
 
 const AppRoutes = () => {
   return (
@@ -31,6 +32,7 @@ const AppRoutes = () => {
           <Route path="/attendance/users" element={<UserPunchesPage />} />
           <Route path="/users1" element={<UsersPage1 />} />
           <Route path="/device-config" element={<DeviceConfigPage />} />
+          <Route path="/time-config" element={<TimeConfigPage />} />
         </Route>
       </Route>
 

@@ -3,9 +3,11 @@ import { DatabaseService } from 'src/database/database.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Prisma, User } from '@prisma/client';
 import { CreateRegUserDto, UpdateRegUserDto } from './dto/users.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
+  private readonly SALT_ROUNDS = 10;
   constructor(private databaseService: DatabaseService) {}
 
   async findUserByEmail(email: string): Promise<User | null> {
@@ -54,6 +56,9 @@ export class UsersService {
     const validFrom = dto.validFrom ? new Date(dto.validFrom) : undefined;
     const validTo = dto.validTo ? new Date(dto.validTo) : undefined;
 
+    const password = 'password123';
+    const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
+
     const user = await this.databaseService.user.upsert({
       where: { employeeId: dto.employeeId },
       update: {
@@ -75,7 +80,7 @@ export class UsersService {
         nic: dto.nic,
         jobPosition: dto.jobPosition,
         email: `${dto.employeeId}@placeholder.local`,
-        password: 'TEMP_PASSWORD',
+        password: hashedPassword,
       },
     });
 

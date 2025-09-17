@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsISO8601 } from 'class-validator';
+import { IsString, IsOptional, IsISO8601, MinLength } from 'class-validator';
 
 export class CreateRegUserDto {
   @IsString()
@@ -25,6 +25,11 @@ export class CreateRegUserDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(6)
+  password?: string;
+
+  @IsOptional()
+  @IsString()
   nic?: string;
 
   @IsOptional()
@@ -40,6 +45,10 @@ export class UpdateRegUserDto {
   @IsOptional()
   @IsString()
   cardNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
 
   @IsOptional()
   @IsISO8601({}, { message: 'validFrom must be a valid ISO date string' })

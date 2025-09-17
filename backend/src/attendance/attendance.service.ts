@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { CalculateAttendanceDto } from './dto/attendance.dto';
+import { UpdateAttendanceConfigDto } from './dto/update-attendance-config.dto';
 
 @Injectable()
 export class AttendanceService {
@@ -34,6 +35,49 @@ export class AttendanceService {
     }
   }
 
+  async getAttendanceConfig() {
+    const config = await this.prisma.attendanceConfig.findFirst({
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!config) {
+      throw new BadRequestException('Attendance config not set');
+    }
+    return config;
+  }
+
+  async updateAttendanceConfig(dto: UpdateAttendanceConfigDto) {
+    // Convert to Date with dummy date
+    const parse = (time: string) => {
+      const [h, m] = time.split(':').map(Number);
+      return new Date(Date.UTC(1970, 0, 1, h, m));
+    };
+
+    const existing = await this.prisma.attendanceConfig.findFirst({
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing) {
+      return this.prisma.attendanceConfig.update({
+        where: { id: existing.id },
+        data: {
+          workStart: parse(dto.workStart),
+          workEnd: parse(dto.workEnd),
+          otEnd: parse(dto.otEnd),
+          earlyStart: parse(dto.earlyStart),
+        },
+      });
+    } else {
+      return this.prisma.attendanceConfig.create({
+        data: {
+          workStart: parse(dto.workStart),
+          workEnd: parse(dto.workEnd),
+          otEnd: parse(dto.otEnd),
+          earlyStart: parse(dto.earlyStart),
+        },
+      });
+    }
+  }
+
   async calculateAttendance(
     dto: CalculateAttendanceDto,
     persistNormalization: boolean = true,
@@ -41,6 +85,7 @@ export class AttendanceService {
     const { employeeId, workDate } = dto;
     const d = new Date(workDate);
     if (isNaN(d.getTime())) throw new BadRequestException('Invalid workDate');
+
     const dayStart = new Date(
       d.getFullYear(),
       d.getMonth(),
@@ -57,39 +102,89 @@ export class AttendanceService {
       59,
       59,
     );
+
+    const cfg = await this.getAttendanceConfig();
+    const [workStartH, workStartM] = cfg.workStart
+      .toTimeString()
+      .split(':')
+      .map(Number);
+    const [workEndH, workEndM] = cfg.workEnd
+      .toTimeString()
+      .split(':')
+      .map(Number);
+    const [otEndH, otEndM] = cfg.otEnd.toTimeString().split(':').map(Number);
+    const [earlyH, earlyM] = cfg.earlyStart
+      .toTimeString()
+      .split(':')
+      .map(Number);
+
     const workStart = new Date(
       d.getFullYear(),
       d.getMonth(),
       d.getDate(),
-      8,
-      0,
+      workStartH,
+      workStartM,
       0,
     );
     const workEnd = new Date(
       d.getFullYear(),
       d.getMonth(),
       d.getDate(),
-      16,
-      30,
+      workEndH,
+      workEndM,
       0,
     );
     const otEnd = new Date(
       d.getFullYear(),
       d.getMonth(),
       d.getDate(),
-      20,
-      0,
+      otEndH,
+      otEndM,
       0,
     );
     const earlyStart = new Date(
       d.getFullYear(),
       d.getMonth(),
       d.getDate(),
-      7,
-      0,
+      earlyH,
+      earlyM,
       0,
     );
+
     const totalWorkSeconds = (workEnd.getTime() - workStart.getTime()) / 1000;
+    // const workStart = new Date(
+    //   d.getFullYear(),
+    //   d.getMonth(),
+    //   d.getDate(),
+    //   8,
+    //   0,
+    //   0,
+    // );
+    // const workEnd = new Date(
+    //   d.getFullYear(),
+    //   d.getMonth(),
+    //   d.getDate(),
+    //   16,
+    //   30,
+    //   0,
+    // );
+    // const otEnd = new Date(
+    //   d.getFullYear(),
+    //   d.getMonth(),
+    //   d.getDate(),
+    //   20,
+    //   0,
+    //   0,
+    // );
+    // const earlyStart = new Date(
+    //   d.getFullYear(),
+    //   d.getMonth(),
+    //   d.getDate(),
+    //   7,
+    //   0,
+    //   0,
+    // );
+    // const totalWorkSeconds = (workEnd.getTime() - workStart.getTime()) / 1000;
 
     const punches = await this.prisma.punch.findMany({
       where: {

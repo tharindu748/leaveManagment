@@ -70,7 +70,7 @@ export default function EditUserDialog({
     form.clearErrors("root.serverError");
     console.log(values);
     try {
-      await api.put(`/users/${user.id}`, values);
+      await api.patch(`/users/${user.id}`, values);
       onSaved?.(values);
       onOpenChange(false);
     } catch (error) {
