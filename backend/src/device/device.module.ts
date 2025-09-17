@@ -6,6 +6,7 @@ import { PunchesModule } from 'src/punches/punches.module';
 import { AttendanceModule } from 'src/attendance/attendance.module';
 import { DatabaseModule } from 'src/database/database.module';
 import { UsersModule } from 'src/users/users.module';
+import { DeviceConfigService } from './device-config.service';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { UsersModule } from 'src/users/users.module';
     AttendanceModule,
     DatabaseModule,
   ],
-  providers: [DeviceService],
+  providers: [DeviceService, DeviceConfigService],
   controllers: [DeviceController],
 })
 export class DeviceModule {}

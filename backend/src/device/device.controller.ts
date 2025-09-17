@@ -1,3 +1,4 @@
+// src/device/device.controller.ts
 import { Controller, Post, Body } from '@nestjs/common';
 import { DeviceService } from './device.service';
 import { DeviceCredentialsDto } from './dto/device.dto';
@@ -7,9 +8,8 @@ export class DeviceController {
   constructor(private readonly deviceService: DeviceService) {}
 
   @Post('credentials')
-  setCredentials(@Body() dto: DeviceCredentialsDto) {
-    this.deviceService.setCredentials(dto);
-    return { status: 'ok' };
+  async setCredentials(@Body() dto: DeviceCredentialsDto) {
+    return this.deviceService.setCredentials(dto);
   }
 
   @Post('sync-users')

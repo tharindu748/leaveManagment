@@ -1,3 +1,4 @@
+// src/punches/punches.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Direction, Source } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
@@ -7,9 +8,9 @@ import { CreatePunchDto } from './dto/punches.dto';
 export class PunchesService {
   constructor(private prisma: DatabaseService) {}
 
-  async getLatestPunches(limit: number = 50) {
+  async getLatestPunches(limit = 50) {
     return this.prisma.punch.findMany({
-      orderBy: { eventTime: 'desc' },
+      orderBy: { correctEventTime: 'desc' }, // use corrected timeline
       take: limit,
     });
   }
@@ -17,6 +18,7 @@ export class PunchesService {
   async insertPunch(dto: CreatePunchDto) {
     const eventTime = new Date(dto.eventTime);
     let direction = dto.direction as Direction | undefined;
+
     if (dto.source === 'manual') {
       if (!direction || !['IN', 'OUT'].includes(direction)) {
         throw new BadRequestException(
@@ -24,17 +26,20 @@ export class PunchesService {
         );
       }
     }
+
     if (
       dto.source === 'device' &&
       (!direction || !['IN', 'OUT'].includes(direction))
     ) {
       direction = await this.autoDirectionForDevice(dto.employeeId, eventTime);
     }
+
     try {
       const punch = await this.prisma.punch.create({
         data: {
           employeeId: dto.employeeId,
           eventTime,
+          correctEventTime: eventTime, // mirror like Python does
           direction: direction as Direction,
           source: dto.source as Source,
           note: dto.note,
@@ -42,9 +47,10 @@ export class PunchesService {
         },
       });
       return punch;
-    } catch (e) {
+    } catch (e: any) {
       if (e.code === 'P2002') {
-        return null; // duplicate ignored
+        // duplicate (unique: employeeId, eventTime, direction, source). Ignore, like INSERT IGNORE.
+        return null;
       }
       throw e;
     }
@@ -54,23 +60,21 @@ export class PunchesService {
     employeeId: string,
     eventTime: Date,
   ): Promise<Direction> {
+    // Use the *corrected* timeline (mirrors Python’s _auto_direction_for_device).
     const dayStart = new Date(
       eventTime.getFullYear(),
       eventTime.getMonth(),
       eventTime.getDate(),
     );
-    const lastPunch = await this.prisma.punch.findFirst({
+    const last = await this.prisma.punch.findFirst({
       where: {
         employeeId,
-        eventTime: {
-          gte: dayStart,
-          lt: eventTime,
-        },
+        correctEventTime: { gte: dayStart, lt: eventTime },
       },
-      orderBy: { eventTime: 'desc' },
+      orderBy: { correctEventTime: 'desc' },
       select: { direction: true },
     });
-    if (!lastPunch) return Direction.IN;
-    return lastPunch.direction === Direction.IN ? Direction.OUT : Direction.IN;
+    if (!last) return Direction.IN;
+    return last.direction === Direction.IN ? Direction.OUT : Direction.IN;
   }
 }

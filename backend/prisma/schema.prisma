@@ -127,24 +127,26 @@ model SyncHistory {
 }
 
 model Punch {
-  id                 Int       @id @default(autoincrement())
-  employeeId         String    @map("employee_id")
-  eventTime          DateTime  @map("event_time")
+  id                 Int        @id @default(autoincrement())
+  employeeId         String     @map("employee_id")
+  eventTime          DateTime   @map("event_time")
+  correctEventTime   DateTime?  @map("correct_event_time") // NEW (nullable for backfill)
   direction          Direction
   source             Source
   note               String?
-  createdBy          String?   @map("created_by")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  directionCorrected Boolean   @default(false) @map("direction_corrected")
+  createdBy          String?    @map("created_by")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  directionCorrected Boolean    @default(false) @map("direction_corrected")
   originalDirection  Direction? @map("original_direction")
-  correctedBy        String?   @map("corrected_by")
-  correctionNote     String?   @map("correction_note")
-  correctedAt        DateTime? @map("corrected_at")
+  correctedBy        String?    @map("corrected_by")
+  correctionNote     String?    @map("correction_note")
+  correctedAt        DateTime?  @map("corrected_at")
 
   user User @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
   @@unique([employeeId, eventTime, direction, source])
   @@index([employeeId, eventTime])
+  @@index([employeeId, correctEventTime])
   @@map("punches")
 }
 
@@ -166,4 +168,15 @@ model AttendanceDay {
   @@id([employeeId, workDate])
   @@index([workDate])
   @@map("attendance_day")
+}
+
+model DeviceConfig {
+  id             Int      @id @default(1)          // single row
+  ip             String
+  username       String
+  passwordEnc    String   @map("password_enc")     // encrypted at rest
+  lastEventTime  String?  @map("last_event_time")  // e.g. "2025-09-15T14:20:01+05:30"
+  updatedAt      DateTime @updatedAt
+
+  @@map("device_config")
 }

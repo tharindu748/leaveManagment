@@ -1,7 +1,9 @@
+// src/device/device.service.ts
 import {
   BadGatewayException,
   Injectable,
   OnModuleDestroy,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { SyncHistoryService } from '../sync-history/sync-history.service';
 import { AttendanceService } from '../attendance/attendance.service';
@@ -11,12 +13,11 @@ import { DatabaseService } from 'src/database/database.service';
 import { UsersService } from 'src/users/users.service';
 import DigestFetch from 'digest-fetch';
 import { Direction } from '@prisma/client';
+import { DeviceConfigService } from './device-config.service';
 
 @Injectable()
 export class DeviceService implements OnModuleDestroy {
-  private credentials: DeviceCredentialsDto | null = null;
   private pollingInterval: NodeJS.Timeout | null = null;
-  private lastEventTime: string | null = null;
 
   constructor(
     private usersService: UsersService,
@@ -24,49 +25,48 @@ export class DeviceService implements OnModuleDestroy {
     private punchesService: PunchesService,
     private attendanceService: AttendanceService,
     private prisma: DatabaseService,
+    private deviceConfig: DeviceConfigService,
   ) {}
 
   onModuleDestroy() {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
   }
 
-  setCredentials(creds: DeviceCredentialsDto) {
-    this.credentials = creds;
+  // Persist credentials once
+  async setCredentials(creds: DeviceCredentialsDto) {
+    await this.deviceConfig.save(creds);
+    return { status: 'ok' };
   }
 
-  private getClient() {
-    if (!this.credentials) throw new BadGatewayException('Credentials not set');
-    const client = new DigestFetch(
-      this.credentials.username,
-      this.credentials.password,
-    );
-
-    // Add custom options if needed
-    return client;
+  private async getClient() {
+    return this.deviceConfig.getClient();
   }
 
-  private async withAuthRetry(requestFn: () => Promise<any>, maxRetries = 3) {
+  private async withAuthRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+  ): Promise<T> {
     for (let i = 0; i < maxRetries; i++) {
       try {
-        return await requestFn();
-      } catch (error) {
-        if (error.status === 401 && i < maxRetries - 1) {
-          console.log('Authentication failed, retrying with new client...');
+        return await fn();
+      } catch (error: any) {
+        if (
+          (error.status === 401 || error.statusCode === 401) &&
+          i < maxRetries - 1
+        ) {
           continue;
         }
         throw error;
       }
     }
+    throw new Error(`withAuthRetry: failed after ${maxRetries} retries`);
   }
 
   async fetchUsersFromDevice() {
     return this.withAuthRetry(async () => {
-      if (!this.credentials)
-        throw new BadGatewayException('Credentials not set');
-      const { ip } = this.credentials;
-      const client = this.getClient(); // Get fresh client
+      const { ip } = await this.deviceConfig.getOrThrow();
+      const client = await this.getClient();
       const url = `http://${ip}/ISAPI/AccessControl/UserInfo/Search?format=json`;
-
       const searchData = {
         UserInfoSearchCond: {
           searchID: '1',
@@ -74,24 +74,26 @@ export class DeviceService implements OnModuleDestroy {
           maxResults: 2000,
         },
       };
-
       const res = await client.fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(searchData),
       });
-
-      if (!res.ok) throw new Error(`Device responded ${res.status}`);
-      return await res.json();
+      if (res.status === 401)
+        throw new UnauthorizedException('Device auth failed');
+      if (!res.ok)
+        throw new BadGatewayException(`Device responded ${res.status}`);
+      return res.json();
     });
   }
 
+  // Same contract, but now fully DB-config backed and error-safe
   async syncUsers() {
-    let usersData;
+    let usersData: any;
     try {
       usersData = await this.fetchUsersFromDevice();
-    } catch (e) {
-      const status = `Error: ${e.message}`;
+    } catch (e: any) {
+      const status = `Error: ${e.message ?? e}`;
       await this.syncHistoryService.addRecord({
         totalUsers: 0,
         newUsers: 0,
@@ -100,7 +102,8 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
-    if (!usersData || !usersData.UserInfoSearch) {
+
+    if (!usersData?.UserInfoSearch) {
       const status = 'Invalid data received';
       await this.syncHistoryService.addRecord({
         totalUsers: 0,
@@ -111,9 +114,9 @@ export class DeviceService implements OnModuleDestroy {
       throw new BadGatewayException(status);
     }
 
-    const userList = usersData.UserInfoSearch.UserInfo || [];
-    const totalMatches = usersData.UserInfoSearch.totalMatches || 0;
-    if (!userList.length) {
+    const userList = usersData.UserInfoSearch.UserInfo ?? [];
+    const totalMatches = usersData.UserInfoSearch.totalMatches ?? 0;
+    if (!Array.isArray(userList) || userList.length === 0) {
       const status = 'No users found';
       await this.syncHistoryService.addRecord({
         totalUsers: 0,
@@ -126,7 +129,6 @@ export class DeviceService implements OnModuleDestroy {
 
     let newCount = 0,
       updatedCount = 0;
-
     for (const user of userList) {
       const empId = user.employeeNo;
       if (!empId) continue;
@@ -182,22 +184,28 @@ export class DeviceService implements OnModuleDestroy {
   }
 
   private async pollEvents() {
-    if (!this.credentials) return;
-    const { ip } = this.credentials;
-    const client = this.getClient();
-    const url = `http://${ip}/ISAPI/AccessControl/AcsEvent?format=json`;
-
-    const acsEventCond: any = {
-      searchID: 'poll1',
-      searchResultPosition: 0,
-      maxResults: 10,
-      major: 5,
-      minor: 0,
-    };
-    if (this.lastEventTime) {
-      acsEventCond.startTime = this.lastEventTime;
+    // Read config + lastEventTime from DB
+    let creds;
+    try {
+      creds = await this.deviceConfig.getOrThrow();
+    } catch {
+      // not configured yet
+      return;
     }
-    const cond = { AcsEventCond: acsEventCond };
+    const client = await this.getClient();
+    const url = `http://${creds.ip}/ISAPI/AccessControl/AcsEvent?format=json`;
+
+    const cond: any = {
+      AcsEventCond: {
+        searchID: 'poll1',
+        searchResultPosition: 0,
+        maxResults: 10,
+        major: 5,
+        minor: 0,
+      },
+    };
+    const lastEventTime = await this.deviceConfig.getLastEventTime();
+    if (lastEventTime) cond.AcsEventCond.startTime = lastEventTime;
 
     let data: any;
     try {
@@ -206,7 +214,10 @@ export class DeviceService implements OnModuleDestroy {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cond),
       });
+      if (res.status === 401)
+        throw new UnauthorizedException('Device auth failed');
       if (!res.ok) {
+        // Log & back off, but do not crash the loop
         console.error('Polling error: Device responded', res.status);
         return;
       }
@@ -216,59 +227,52 @@ export class DeviceService implements OnModuleDestroy {
       return;
     }
 
-    const acs = data.AcsEvent || {};
-    const statusStr = acs.responseStatusStrg || 'UNKNOWN';
+    const acs = data?.AcsEvent ?? {};
+    const statusStr = acs.responseStatusStrg ?? 'UNKNOWN';
     if (!['OK', 'MORE'].includes(statusStr) || !acs.InfoList) return;
 
-    const events = acs.InfoList;
-    let newMaxTime = this.lastEventTime;
-    const insertedEmployees = new Set<string>();
+    const events = acs.InfoList as any[];
+    let newMaxTime = lastEventTime;
+    const affected = new Set<string>();
 
-    for (const event of events) {
-      const empId = event.employeeNoString;
+    for (const ev of events) {
+      const empId = ev.employeeNoString;
       if (!empId) continue;
 
-      const rawTime = event.time;
-      const normalizedTimeStr = rawTime
-        ? rawTime.slice(0, 19).replace('T', ' ')
-        : '';
-      const normalizedTime = new Date(normalizedTimeStr);
-      if (isNaN(normalizedTime.getTime())) continue;
+      const raw = ev.time as string | undefined; // e.g. "2025-09-15T14:12:00+05:30"
+      const normalized = raw ? raw.slice(0, 19).replace('T', ' ') : ''; // "YYYY-MM-DD HH:MM:SS"
+      const eventTime = normalized ? new Date(normalized) : null;
+      if (!eventTime || Number.isNaN(eventTime.getTime())) continue;
 
-      const attendanceStatus = event.attendanceStatus || 'Unknown';
-      let direction: Direction = Direction.IN;
-      if (
-        attendanceStatus.toLowerCase().includes('checkin') ||
-        attendanceStatus.toLowerCase().includes('in')
-      ) {
-        direction = Direction.IN;
-      } else if (
-        attendanceStatus.toLowerCase().includes('checkout') ||
-        attendanceStatus.toLowerCase().includes('out')
-      ) {
+      const att = (ev.attendanceStatus as string | undefined) ?? 'Unknown';
+      let direction: Direction | undefined = undefined;
+
+      const a = att.toLowerCase();
+      if (a.includes('checkin') || a.includes('in')) direction = Direction.IN;
+      else if (a.includes('checkout') || a.includes('out'))
         direction = Direction.OUT;
-      }
+      // else: leave undefined → PunchesService will auto-infer from history
 
       const row = await this.punchesService.insertPunch({
         employeeId: empId,
-        eventTime: normalizedTimeStr,
-        direction,
+        eventTime: normalized,
+        direction, // may be undefined → auto-infer
         source: 'device',
-      });
+      } as any);
+
       if (row) {
-        insertedEmployees.add(empId);
+        affected.add(empId);
       }
-      if (rawTime && (!newMaxTime || rawTime > newMaxTime)) {
-        newMaxTime = rawTime;
-      }
+      if (raw && (!newMaxTime || raw > newMaxTime)) newMaxTime = raw;
     }
 
-    if (newMaxTime && newMaxTime !== this.lastEventTime) {
-      this.lastEventTime = newMaxTime;
+    if (newMaxTime && newMaxTime !== lastEventTime) {
+      await this.deviceConfig.setLastEventTime(newMaxTime);
     }
 
+    // Recalculate attendance for the affected employees for *today* (same as Python worker).
     const workDate = new Date().toISOString().slice(0, 10);
-    for (const empId of insertedEmployees) {
+    for (const empId of affected) {
       await this.attendanceService.calculateAttendance({
         employeeId: empId,
         workDate,
