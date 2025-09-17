@@ -12,6 +12,13 @@ export class PunchesService {
     return this.prisma.punch.findMany({
       orderBy: { correctEventTime: 'desc' }, // use corrected timeline
       take: limit,
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
   }
 

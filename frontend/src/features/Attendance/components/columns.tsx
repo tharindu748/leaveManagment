@@ -7,6 +7,9 @@ export type Punches = {
   WorkHours: string;
   NotWorkHours: string;
   OverTime: string;
+  user: {
+    name: string;
+  };
 };
 
 export const columns: ColumnDef<Punches>[] = [
@@ -20,23 +23,26 @@ export const columns: ColumnDef<Punches>[] = [
     ),
   },
   {
-    accessorKey: "firstIn",
+    accessorFn: (row) => row.user?.name,
+    id: "name",
     header: "Name",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.getValue("firstIn") as string}
-      </div>
+    cell: ({ getValue }) => (
+      <div className="flex flex-wrap gap-1">{getValue() as string}</div>
     ),
   },
   {
     accessorKey: "eventTime",
     header: "Date/Time",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.getValue("eventTime") as string}
-      </div>
-    ),
+    cell: ({ row }) => {
+      const raw = row.getValue("eventTime") as string;
+      return (
+        <div className="flex flex-wrap gap-1">
+          {new Date(raw).toLocaleString()}
+        </div>
+      );
+    },
   },
+
   {
     accessorKey: "direction",
     header: "Direction",
