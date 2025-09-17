@@ -11,7 +11,6 @@ import { PunchesService } from '../punches/punches.service';
 import { DeviceCredentialsDto } from './dto/device.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { UsersService } from 'src/users/users.service';
-import DigestFetch from 'digest-fetch';
 import { Direction } from '@prisma/client';
 import { DeviceConfigService } from './device-config.service';
 

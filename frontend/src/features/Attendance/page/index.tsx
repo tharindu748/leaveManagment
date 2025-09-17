@@ -11,6 +11,7 @@ import api from "@/api/axios";
 function PunchesPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const [data, setData] = useState<Punches[]>([]);
+  const [isPolling, setIsPolling] = useState<boolean>(false);
 
   const fetchPunches = async () => {
     try {
@@ -25,6 +26,17 @@ function PunchesPage() {
   const startPolling = async () => {
     try {
       const res = await api.post(`/device/start-polling`);
+      setIsPolling(true);
+      console.log(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const stopPolling = async () => {
+    try {
+      const res = await api.post(`/device/stop-polling`);
+      setIsPolling(false);
       console.log(res.data);
     } catch (error) {
       console.log(error);
@@ -57,14 +69,24 @@ function PunchesPage() {
             onClick={() => startPolling()}
             type="button"
             className="bg-green-600"
-            // disabled
+            disabled={isPolling}
           >
             Start Polling
           </Button>
-          <Button type="button" className="bg-red-600" disabled>
+          <Button
+            onClick={() => stopPolling()}
+            type="button"
+            className="bg-red-600"
+            disabled={!isPolling}
+          >
             Stop Polling
           </Button>
-          <Button type="button" className="bg-blue-600" disabled>
+          <Button
+            onClick={() => fetchPunches()}
+            type="button"
+            className="bg-blue-600"
+            disabled={!isPolling}
+          >
             Refresh Table
           </Button>
         </div>
