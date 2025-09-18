@@ -9,6 +9,7 @@ import { PunchesModule } from './punches/punches.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { SyncHistoryModule } from './sync-history/sync-history.module';
 import { DeviceModule } from './device/device.module';
+import { AnalyticModule } from './analytic/analytic.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { DeviceModule } from './device/device.module';
     AttendanceModule,
     SyncHistoryModule,
     DeviceModule,
+    AnalyticModule,
   ],
   controllers: [AppController],
   providers: [AppService],
