@@ -42,6 +42,7 @@ export class AuthService {
 
     const tokens = await this.getTokens(
       user.id,
+      user.name,
       user.email,
       user.isAdmin,
       user.employeeId,
@@ -51,6 +52,7 @@ export class AuthService {
     return {
       ...tokens,
       userId: user.id,
+      name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
       employeeId: user.employeeId,
@@ -59,6 +61,7 @@ export class AuthService {
 
   async validateUser(loginDto: LoginDto): Promise<{
     userId: number;
+    name: string;
     email: string;
     isAdmin: boolean;
     employeeId: string | null;
@@ -74,6 +77,7 @@ export class AuthService {
 
     return {
       userId: user.id,
+      name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
       employeeId: user.employeeId,
@@ -82,12 +86,14 @@ export class AuthService {
 
   async login(user: {
     userId: number;
+    name: string;
     email: string;
     isAdmin: boolean;
     employeeId: string;
   }): Promise<AuthResultDto> {
     const tokens = await this.getTokens(
       user.userId,
+      user.name,
       user.email,
       user.isAdmin,
       user.employeeId,
@@ -96,6 +102,7 @@ export class AuthService {
     return {
       ...tokens,
       userId: user.userId,
+      name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
       employeeId: user.employeeId,
@@ -125,6 +132,7 @@ export class AuthService {
 
     const tokens = await this.getTokens(
       user.id,
+      user.name,
       user.email,
       user.isAdmin,
       user.employeeId,
@@ -134,6 +142,7 @@ export class AuthService {
     return {
       ...tokens,
       userId: user.id,
+      name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
       employeeId: user.employeeId,
@@ -152,6 +161,7 @@ export class AuthService {
 
   async getTokens(
     userId: number,
+    name: string,
     email: string,
     isAdmin: boolean,
     employeeId: string | null,
@@ -160,6 +170,7 @@ export class AuthService {
       this.jwtService.signAsync(
         {
           sub: userId,
+          name,
           email,
           isAdmin,
           employeeId,

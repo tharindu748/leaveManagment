@@ -12,6 +12,7 @@ const Dashboard = () => {
     <div>
       <h1>Welcome to the Dashboard, {user?.email}!</h1>
       <p>Your User ID is: {user?.id}</p>
+      <p>Your User ID is: {user?.name}</p>
       <p>Is Admin {user?.isAdmin ? "Yes" : "No"}</p>
     </div>
   );

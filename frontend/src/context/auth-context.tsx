@@ -4,6 +4,7 @@ import api from "@/api/axios";
 
 type User = {
   id: number;
+  name: string;
   email: string;
   isAdmin: boolean;
   employeeId: string | null;
@@ -20,6 +21,7 @@ interface AuthState {
 
 type JwtPayload = {
   sub: number;
+  name: string;
   email: string;
   isAdmin: boolean;
   employeeId: string | null;
@@ -35,6 +37,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({
         user: {
           id: decoded.sub,
+          name: decoded.name,
           email: decoded.email,
           isAdmin: decoded.isAdmin,
           employeeId: decoded.employeeId,
