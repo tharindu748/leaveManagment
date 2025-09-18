@@ -80,11 +80,12 @@ function useIsMobile() {
   return isMobile;
 }
 
-function UserPunchesPage() {
+function PunchesPage() {
   const { user } = useAuth();
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const [data, setData] = useState<Punches[]>([]);
   const [open, setOpen] = useState(false);
+  const [isPolling, setIsPolling] = useState<boolean>(false);
   const [addPunchToggle, setAddPunchToggle] = useState(false);
   const isMobile = useIsMobile();
   const currentUserId = user?.id;
@@ -127,9 +128,29 @@ function UserPunchesPage() {
     }
   };
 
+  const startPolling = async () => {
+    try {
+      const res = await api.post(`/device/start-polling`);
+      setIsPolling(true);
+      console.log(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const stopPolling = async () => {
+    try {
+      const res = await api.post(`/device/stop-polling`);
+      setIsPolling(false);
+      console.log(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   useEffect(() => {
-    setBreadcrumb(["Attendance", "User Punches"]);
-    // fetchPunches();
+    setBreadcrumb(["Attendance", "Punches"]);
+    fetchPunches();
   }, []);
 
   const today = new Date();
@@ -182,11 +203,55 @@ function UserPunchesPage() {
     <>
       <PageHeader>
         <div>
-          <PageHeaderTitle value="User Punches" />
+          <PageHeaderTitle value="Punches" />
         </div>
       </PageHeader>
 
       <div className="rounded-lg border p-6">
+        <div className="rounded-lg border p-6 mt-3">
+          <div className="flex items-center justify-between space-x-4 mt-3">
+            <div>
+              <h2 className="font-semibold">
+                Status:{" "}
+                <span
+                  className={`${
+                    isPolling
+                      ? "bg-green-200 border-green-600 text-green-600"
+                      : "bg-red-200 border-red-600 text-red-600"
+                  }   border font-light pt-1 pb-2 px-3 rounded-sm`}
+                >
+                  {isPolling ? "Running" : "Stopped"}
+                </span>
+              </h2>
+            </div>
+            <div className="space-x-4">
+              <Button
+                onClick={() => startPolling()}
+                type="button"
+                className="bg-green-600"
+                disabled={isPolling}
+              >
+                Start Polling
+              </Button>
+              <Button
+                onClick={() => stopPolling()}
+                type="button"
+                className="bg-red-600"
+                disabled={!isPolling}
+              >
+                Stop Polling
+              </Button>
+              <Button
+                onClick={() => fetchPunches()}
+                type="button"
+                className="bg-blue-600"
+                disabled={!isPolling}
+              >
+                Refresh Table
+              </Button>
+            </div>
+          </div>
+        </div>
         <div className="rounded-lg border p-6 mt-3">
           <h2 className="mb-4 font-semibold">Search Punches</h2>
 
@@ -363,4 +428,4 @@ function UserPunchesPage() {
   );
 }
 
-export default UserPunchesPage;
+export default PunchesPage;

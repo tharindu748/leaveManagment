@@ -51,13 +51,6 @@ const items: MenuItem[] = [
     visibleFor: "all",
   },
   {
-    title: "Time Management",
-    icon: Calendar,
-    url: "/EmployeeDetails",
-    items: [],
-    visibleFor: "all",
-  },
-  {
     title: "Activity",
     icon: Activity,
     url: "/activity",
@@ -73,11 +66,6 @@ const items: MenuItem[] = [
       {
         title: "Punches",
         url: "/attendance/punches",
-        visibleFor: "all",
-      },
-      {
-        title: "Users",
-        url: "/attendance/users",
         visibleFor: "all",
       },
       {

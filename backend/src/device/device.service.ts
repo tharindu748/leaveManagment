@@ -218,7 +218,6 @@ export class DeviceService implements OnModuleDestroy {
       if (res.status === 401)
         throw new UnauthorizedException('Device auth failed');
       if (!res.ok) {
-        // Log & back off, but do not crash the loop
         console.error('Polling error: Device responded', res.status);
         return;
       }

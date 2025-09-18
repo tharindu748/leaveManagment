@@ -8,10 +8,9 @@ import PublicRoute from "./public-route";
 import Login from "@/features/auth/pages";
 import CalendarLeave from "@/features/calendar/pages";
 import ActivityPage from "@/features/Activities/pages";
-import PunchesPage from "@/features/Attendance/page";
+import PunchesPage from "@/features/Attendance/page/punches-page";
 import UsersPage1 from "@/features/users/pages";
 import DeviceConfigPage from "@/features/settings/pages";
-import UserPunchesPage from "@/features/Attendance/page/user-punches-page";
 import TimeConfigPage from "@/features/settings/pages/time-config-page";
 import LeaveManagementPage from "@/features/Attendance/page/leave-manage-page";
 
@@ -30,7 +29,6 @@ const AppRoutes = () => {
           <Route path="/calendar" element={<CalendarLeave />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/attendance/punches" element={<PunchesPage />} />
-          <Route path="/attendance/users" element={<UserPunchesPage />} />
           <Route
             path="/attendance/leave-management"
             element={<LeaveManagementPage />}

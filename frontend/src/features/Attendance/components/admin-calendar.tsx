@@ -391,7 +391,7 @@ const AdminCalendar = ({
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-2xl [&>button]:hidden p-6 overflow-hidden">
+      <DialogContent className="sm:max-w-2xl [&>button]:hidden p-8 overflow-hidden">
         <DialogHeader>
           <div className="flex items-center justify-between gap-4">
             <DialogTitle>Calendar</DialogTitle>
@@ -408,7 +408,7 @@ const AdminCalendar = ({
             </div>
           </div>
         </DialogHeader>
-        <div className="mt-6 bg-white rounded-lg shadow-md p-6 max-w-full">
+        <div className="mt-2 bg-white rounded-lg shadow-md p-6 max-w-full">
           {/* Header */}
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6">
