@@ -104,19 +104,15 @@ export class AttendanceService {
     );
 
     const cfg = await this.getAttendanceConfig();
-    const [workStartH, workStartM] = cfg.workStart
-      .toTimeString()
-      .split(':')
-      .map(Number);
-    const [workEndH, workEndM] = cfg.workEnd
-      .toTimeString()
-      .split(':')
-      .map(Number);
-    const [otEndH, otEndM] = cfg.otEnd.toTimeString().split(':').map(Number);
-    const [earlyH, earlyM] = cfg.earlyStart
-      .toTimeString()
-      .split(':')
-      .map(Number);
+    // ✅ Fix: Use getUTCHours() and getUTCMinutes() to extract intended local hours without timezone shift
+    const workStartH = cfg.workStart.getUTCHours();
+    const workStartM = cfg.workStart.getUTCMinutes();
+    const workEndH = cfg.workEnd.getUTCHours();
+    const workEndM = cfg.workEnd.getUTCMinutes();
+    const otEndH = cfg.otEnd.getUTCHours();
+    const otEndM = cfg.otEnd.getUTCMinutes();
+    const earlyH = cfg.earlyStart.getUTCHours();
+    const earlyM = cfg.earlyStart.getUTCMinutes();
 
     const workStart = new Date(
       d.getFullYear(),
@@ -217,7 +213,7 @@ export class AttendanceService {
       ]);
       const hasManualPunch = rawEvents.some(([, , s]) => s === Source.manual);
       const [normEvents, adjusted1] = this.normalizeSequence(rawEvents);
-      const [periods, adjusted2] = this.buildPeriods(normEvents, d);
+      const [periods, adjusted2] = this.buildPeriods(normEvents, d, otEnd);
       hadManualFlag = hasManualPunch || adjusted1 || adjusted2;
 
       if (persistNormalization && hadManualFlag) {
@@ -238,19 +234,29 @@ export class AttendanceService {
           [...normEvents]
             .reverse()
             .find(([, dd]) => dd === Direction.OUT)?.[0] || null;
+        // ✅ Fix: Add hour12: true for AM/PM formatting to match desired output
         firstIn = firstInDt
           ? firstInDt.toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
+              hour12: true,
             })
           : null;
         lastOut = lastOutDt
           ? lastOutDt.toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
+              hour12: true,
             })
           : null;
-        startTime = firstInDt && firstInDt <= workStart ? '08:00' : firstIn;
+        // ✅ Fix: Make startTime dynamic based on workStart (add locale for AM/PM if needed)
+        const workStartStr = workStart.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+        startTime =
+          firstInDt && firstInDt <= workStart ? workStartStr : firstIn;
 
         let ws = 0,
           os = 0;
@@ -334,6 +340,7 @@ export class AttendanceService {
   private buildPeriods(
     normEvents: [Date, Direction, Source][],
     d: Date,
+    otEnd: Date, // ✅ Fix: Pass otEnd to avoid TS error and use dynamic endCap
   ): [[Date, Date][], boolean] {
     const periods: [Date, Date][] = [];
     let currentIn: Date | null = null;
@@ -349,14 +356,8 @@ export class AttendanceService {
       }
     }
     if (currentIn) {
-      const endCap = new Date(
-        d.getFullYear(),
-        d.getMonth(),
-        d.getDate(),
-        20,
-        0,
-        0,
-      );
+      // ✅ Fix: Use passed otEnd for endCap instead of hardcoded 20:00
+      const endCap = otEnd;
       if (endCap > currentIn) {
         periods.push([currentIn, endCap]);
       }
@@ -432,9 +433,10 @@ export class AttendanceService {
   }
 
   private ymd(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    // ✅ Improvement: Use UTC methods for consistent date extraction from UTC timestamps
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   }
 
@@ -460,7 +462,8 @@ export class AttendanceService {
       // for (const p of punches) {
       //   uniqueDays.add(this.ymd(p.eventTime));
       // }
-      for (const p of punches) uniqueDays.add(this.ymd(new Date(p.eventTime)));
+      // ✅ Fix: Remove redundant new Date(); use p.eventTime directly (it's already a Date)
+      for (const p of punches) uniqueDays.add(this.ymd(p.eventTime));
 
       cursor = { id: punches[punches.length - 1].id };
       if (punches.length < pageSize) break;

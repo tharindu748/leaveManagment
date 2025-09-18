@@ -72,7 +72,7 @@ const items: MenuItem[] = [
     items: [
       {
         title: "Punches",
-        url: "/punches",
+        url: "/attendance/punches",
         visibleFor: "all",
       },
       {
@@ -81,8 +81,8 @@ const items: MenuItem[] = [
         visibleFor: "all",
       },
       {
-        title: "Attendance3",
-        url: "/attendance2",
+        title: "Leave Management",
+        url: "/attendance/leave-management",
         visibleFor: "all",
       },
     ],

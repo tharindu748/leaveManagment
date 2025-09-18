@@ -6,7 +6,7 @@ import PageHeader from "@/components/page-header/wrapper";
 import type { OutletContextType } from "@/layouts/main-layout";
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
-import { columns, type Punches } from "../components/columns";
+import { columns, type Punches } from "../components/Table/columns";
 import api from "@/api/axios";
 
 import {

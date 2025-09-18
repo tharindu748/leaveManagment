@@ -5,7 +5,7 @@ import PageHeader from "@/components/page-header/wrapper";
 import PageHeaderTitle from "@/components/page-header/title";
 import { Button } from "@/components/ui/button";
 import { DataTable2 } from "@/components/data-table";
-import { columns, type Punches } from "../components/columns";
+import { columns, type Punches } from "../components/Table/columns";
 import api from "@/api/axios";
 
 function PunchesPage() {

@@ -22,7 +22,6 @@ import api from "@/api/axios";
 function TimeConfigPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
 
-  // ✅ Fix validation messages
   const credentialsSchema = z.object({
     workStart: z.string().min(1, "Work start time is required"),
     workEnd: z.string().min(1, "Work end time is required"),
@@ -42,34 +41,18 @@ function TimeConfigPage() {
     },
   });
 
-  // ✅ Submit handler
-  const onSubmit = async (values: CredentialsFormValues) => {
-    form.clearErrors("root.serverError");
-    try {
-      const res = await api.patch("/attendance/config", values);
-      console.log("Submitted values:", res);
-    } catch (error) {
-      form.setError("root.serverError", {
-        type: "manual",
-        message: "Failed to update time configuration.",
-      });
-    }
+  const formatTime = (time: string) => {
+    const d = new Date(time);
+    const hh = String(d.getUTCHours()).padStart(2, "0"); // Use UTC
+    const mm = String(d.getUTCMinutes()).padStart(2, "0"); // Use UTC
+    return `${hh}:${mm}`;
   };
 
-  // ✅ Fetch config on mount
   const fetchConfig = async () => {
     try {
       const res = await api.get("/attendance/config");
       const config = res.data;
-
-      console.log("Fetched config:", config);
-
-      const formatTime = (time: string) => {
-        const d = new Date(time);
-        const hh = String(d.getHours()).padStart(2, "0");
-        const mm = String(d.getMinutes()).padStart(2, "0");
-        return `${hh}:${mm}`;
-      };
+      console.log("Fetched config:", JSON.stringify(config, null, 2));
 
       form.reset({
         workStart: formatTime(config.workStart),
@@ -79,6 +62,22 @@ function TimeConfigPage() {
       });
     } catch (error) {
       console.error("Failed to fetch config:", error);
+    }
+  };
+
+  const onSubmit = async (values: CredentialsFormValues) => {
+    console.log("Submitting values:", values);
+    form.clearErrors("root.serverError");
+    try {
+      const res = await api.patch("/attendance/config", values);
+      await fetchConfig(); // Re-fetch after update
+      console.log("API response:", res.data);
+    } catch (error) {
+      console.error("Submission error:", error);
+      form.setError("root.serverError", {
+        type: "manual",
+        message: "Failed to update time configuration.",
+      });
     }
   };
 
