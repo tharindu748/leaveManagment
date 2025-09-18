@@ -7,6 +7,8 @@ import {
 import { DatabaseService } from 'src/database/database.service';
 import { CreateLeaveRequestDto } from './dto/create_leave_request.dto';
 import { LeaveStatus, LeaveType } from '@prisma/client';
+import { ApproveLeaveRequestDto } from './dto/approve_leave_request.dto';
+import { CancelLeaveRequestDto } from './dto/cancel_leave_request.dto';
 
 @Injectable()
 export class LeaveService {
@@ -45,7 +47,7 @@ export class LeaveService {
   }
 
   async createLeaveRequest(data: CreateLeaveRequestDto) {
-    const { userId, approvedBy, leaveType, reason, dates } = data;
+    const { userId, leaveType, reason, dates } = data;
 
     // Helper function to normalize dates to the start of the day (midnight) for accurate comparison.
     const normalizeDate = (date: Date): Date => {
@@ -91,7 +93,6 @@ export class LeaveService {
     return this.databaseService.leave_request.create({
       data: {
         user: { connect: { id: userId } },
-        approvedBy,
         leaveType,
         reason,
         dates: {
@@ -155,9 +156,9 @@ export class LeaveService {
   }
 
   // Approve a leave request and deduct balances
-  async approveLeaveRequest(requestId: number, approvedBy: string) {
+  async approveLeaveRequest(dto: ApproveLeaveRequestDto) {
     const request = await this.databaseService.leave_request.findUnique({
-      where: { id: requestId },
+      where: { id: dto.requestId },
       include: { dates: true },
     });
 
@@ -196,20 +197,20 @@ export class LeaveService {
 
     // Update request status
     return this.databaseService.leave_request.update({
-      where: { id: requestId },
+      where: { id: dto.requestId },
       data: {
         status: LeaveStatus.APPROVED,
         approvedAt: new Date(),
-        approvedBy,
+        approvedBy: dto.approvedBy,
       },
       include: { dates: true, user: true },
     });
   }
 
   // Cancel a leave request (add back if approved)
-  async cancelLeaveRequest(requestId: number) {
+  async cancelLeaveRequest(dto: CancelLeaveRequestDto) {
     const request = await this.databaseService.leave_request.findUnique({
-      where: { id: requestId },
+      where: { id: dto.requestId },
       include: { dates: true },
     });
 
@@ -239,8 +240,8 @@ export class LeaveService {
 
     // Update status
     return this.databaseService.leave_request.update({
-      where: { id: requestId },
-      data: { status: LeaveStatus.CANCELLED },
+      where: { id: dto.requestId },
+      data: { status: LeaveStatus.CANCELLED, approvedBy: dto.approvedBy },
       include: { dates: true, user: true },
     });
   }

@@ -25,7 +25,9 @@ model User {
   jobPosition        String?              @map("jobPosition")
   active             Boolean              @default(true)
 
-  leaveRequests      Leave_request[]
+  leaveRequests    Leave_request[] @relation("UserLeaveRequests")
+  approvedRequests Leave_request[] @relation("ApprovedRequests")
+
   leaveBalances      Leave_balance[]
   punches            Punch[]
   attendanceDays     AttendanceDay[]
@@ -36,7 +38,7 @@ model User {
 model Leave_request {
   id          Int                  @id @default(autoincrement())
   userId      Int
-  approvedBy  String?
+  approvedBy  Int?
   leaveType   LeaveType
   status      LeaveStatus?         @default(PENDING)
   reason      String?
@@ -45,7 +47,8 @@ model Leave_request {
   rejectedAt  DateTime?
   dates       Leave_request_date[]
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User @relation("UserLeaveRequests", fields: [userId], references: [id], onDelete: Cascade)
+  approvedByUser User? @relation("ApprovedRequests", fields: [approvedBy], references: [id])
 
   @@map("leave_requests")
 }

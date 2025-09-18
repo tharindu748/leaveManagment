@@ -56,16 +56,13 @@ export class LeaveController {
   @Post('approve')
   @HttpCode(HttpStatus.OK)
   async approveLeaveRequest(@Body() data: ApproveLeaveRequestDto) {
-    return this.leaveService.approveLeaveRequest(
-      data.requestId,
-      data.approvedBy,
-    );
+    return this.leaveService.approveLeaveRequest(data);
   }
 
   @Post('cancel')
   @HttpCode(HttpStatus.OK)
   async cancelLeaveRequest(@Body() data: CancelLeaveRequestDto) {
-    return this.leaveService.cancelLeaveRequest(data.requestId);
+    return this.leaveService.cancelLeaveRequest(data);
   }
 
   @Patch('policy')

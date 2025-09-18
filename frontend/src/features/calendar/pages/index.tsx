@@ -96,7 +96,6 @@ const CalendarLeave: React.FC = () => {
 
     const body = {
       userId: 1,
-      approvedBy: null,
       leaveType: type,
       reason: reason || null,
       dates: datesPayload,

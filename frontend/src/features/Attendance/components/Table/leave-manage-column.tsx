@@ -8,9 +8,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal } from "lucide-react";
-import { Link } from "react-router";
 
 export type LeaveRequest = {
+  id: number;
   userId: number;
   user: {
     id: number;
@@ -29,11 +29,14 @@ export type LeaveRequest = {
   }[];
   requestedAt: string;
   approvedAt?: string | null;
-  approvedBy?: string | null;
+  approvedBy: number;
   rejectedAt?: string | null;
 };
 
-export const leaveManageColumns: ColumnDef<LeaveRequest>[] = [
+export const leaveManageColumns = (
+  handleApprove: (id: number) => void,
+  handleCancel: (id: number) => void
+): ColumnDef<LeaveRequest>[] => [
   {
     accessorFn: (row) => row.user?.name,
     id: "name",
@@ -101,6 +104,7 @@ export const leaveManageColumns: ColumnDef<LeaveRequest>[] = [
   {
     id: "actions",
     cell: ({ row }) => {
+      const request = row.original;
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -110,9 +114,13 @@ export const leaveManageColumns: ColumnDef<LeaveRequest>[] = [
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem variant="default">Approve</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleApprove(request.id)}>
+              Approve
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">Reject</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleCancel(request.id)}>
+              Reject
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );

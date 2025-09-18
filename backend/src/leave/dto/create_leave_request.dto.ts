@@ -14,10 +14,6 @@ export class CreateLeaveRequestDto {
   @IsInt()
   userId: number;
 
-  @IsOptional()
-  @IsString()
-  approvedBy?: string;
-
   @IsEnum(LeaveType)
   leaveType: LeaveType;
 
