@@ -6,7 +6,6 @@ import PageHeader from "@/components/page-header/wrapper";
 import type { OutletContextType } from "@/layouts/main-layout";
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
-import { columns, type Punches } from "../components/Table/columns";
 import api from "@/api/axios";
 
 import {
@@ -21,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Input } from "@/components/ui/input";
 
 import {
   Popover,
@@ -32,7 +30,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, X } from "lucide-react";
 import {
   format,
-  addDays,
   startOfDay,
   endOfDay,
   startOfMonth,
@@ -42,12 +39,14 @@ import {
   endOfWeek,
 } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import AddManualPunchDialog from "../components/add-manual-punch-dialog";
+import {
+  userPunchColumns,
+  type Punches,
+} from "../components/table/user-punch-columns";
 import { useAuth } from "@/context/auth-context";
 
 const filterSchema = z.object({
-  employeeId: z.string().optional(),
-  name: z.string().optional(),
+  employeeId: z.string().min(1, "Employee ID is required"),
   dateRange: z
     .object({
       from: z.date().nullable().optional(),
@@ -81,21 +80,16 @@ function useIsMobile() {
   return isMobile;
 }
 
-function PunchesPage() {
-  const { user } = useAuth();
+function UserPunchesPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const [data, setData] = useState<Punches[]>([]);
   const [open, setOpen] = useState(false);
-  const [isPolling, setIsPolling] = useState<boolean>(false);
-  const [addPunchToggle, setAddPunchToggle] = useState(false);
   const isMobile = useIsMobile();
-  const currentUserId = user?.id;
+  const { user } = useAuth();
 
   const form = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
     defaultValues: {
-      employeeId: "",
-      name: "",
       dateRange: undefined,
     },
   });
@@ -104,22 +98,14 @@ function PunchesPage() {
     form.clearErrors("root.serverError");
 
     try {
-      const params = new URLSearchParams();
-
-      const employeeId = values.employeeId?.trim();
-      if (employeeId) params.set("employeeId", employeeId);
-
-      const name = values.name?.trim();
-      if (name) params.set("name", name);
-
+      let query = user?.employeeId + "";
       if (values.dateRange?.from && values.dateRange?.to) {
-        params.set("from", values.dateRange.from.toISOString());
-        params.set("to", values.dateRange.to.toISOString());
+        query = `?from=${values.dateRange.from.toISOString()}&to=${values.dateRange.to.toISOString()}`;
       } else if (values.dateRange?.from) {
-        params.set("date", values.dateRange.from.toISOString());
+        query = `?date=${values.dateRange.from.toISOString()}`;
       }
 
-      const res = await api.get(`/punches?${params.toString()}`);
+      const res = await api.get(`/punches/${query}`);
       setData(res.data);
     } catch (err: any) {
       form.setError("root.serverError", {
@@ -131,35 +117,17 @@ function PunchesPage() {
 
   const fetchPunches = async () => {
     try {
-      const res = await api.get(`/punches/latest?limit=10`);
+      const res = await api.get(
+        `/punches/latest?employeeId=${user?.employeeId}`
+      );
       setData(res.data);
     } catch (error) {
       console.log(error);
     }
   };
 
-  const startPolling = async () => {
-    try {
-      const res = await api.post(`/device/start-polling`);
-      setIsPolling(true);
-      console.log(res.data);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const stopPolling = async () => {
-    try {
-      const res = await api.post(`/device/stop-polling`);
-      setIsPolling(false);
-      console.log(res.data);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   useEffect(() => {
-    setBreadcrumb(["Attendance", "Punches"]);
+    setBreadcrumb(["Activity", "Punches"]);
     fetchPunches();
   }, []);
 
@@ -219,50 +187,6 @@ function PunchesPage() {
 
       <div className="rounded-lg border p-6">
         <div className="rounded-lg border p-6 mt-3">
-          <div className="flex items-center justify-between space-x-4 mt-3">
-            <div>
-              <h2 className="font-semibold">
-                Status:{" "}
-                <span
-                  className={`${
-                    isPolling
-                      ? "bg-green-200 border-green-600 text-green-600"
-                      : "bg-red-200 border-red-600 text-red-600"
-                  }   border font-light pt-1 pb-2 px-3 rounded-sm`}
-                >
-                  {isPolling ? "Running" : "Stopped"}
-                </span>
-              </h2>
-            </div>
-            <div className="space-x-4">
-              <Button
-                onClick={() => startPolling()}
-                type="button"
-                className="bg-green-600"
-                disabled={isPolling}
-              >
-                Start Polling
-              </Button>
-              <Button
-                onClick={() => stopPolling()}
-                type="button"
-                className="bg-red-600"
-                disabled={!isPolling}
-              >
-                Stop Polling
-              </Button>
-              <Button
-                onClick={() => fetchPunches()}
-                type="button"
-                className="bg-blue-600"
-                disabled={!isPolling}
-              >
-                Refresh Table
-              </Button>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border p-6 mt-3">
           <h2 className="mb-4 font-semibold">Search Punches</h2>
 
           <Form {...form}>
@@ -270,34 +194,6 @@ function PunchesPage() {
               onSubmit={form.handleSubmit(onSubmit)}
               className="flex items-end space-x-4"
             >
-              <FormField
-                control={form.control}
-                name="employeeId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Employee ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter employee id" {...field} />
-                    </FormControl>
-                    <FormMessage className="text-xs" />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Employee Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter employee id" {...field} />
-                    </FormControl>
-                    <FormMessage className="text-xs" />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="dateRange"
@@ -428,28 +324,16 @@ function PunchesPage() {
               >
                 {form.formState.isSubmitting ? "Loading..." : "Search"}
               </Button>
-
-              <Button type="button" onClick={() => setAddPunchToggle(true)}>
-                Add Manual Punch
-              </Button>
             </form>
           </Form>
 
           <div className="mt-8">
-            <DataTable3 columns={columns} data={data} />
+            <DataTable3 columns={userPunchColumns} data={data} />
           </div>
         </div>
       </div>
-      {addPunchToggle && (
-        <AddManualPunchDialog
-          open={addPunchToggle}
-          onOpenChange={setAddPunchToggle}
-          onSaved={fetchPunches}
-          currentUserId={currentUserId}
-        />
-      )}
     </>
   );
 }
 
-export default PunchesPage;
+export default UserPunchesPage;

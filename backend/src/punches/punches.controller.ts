@@ -20,13 +20,23 @@ export class PunchesController {
   }
 
   @Get('latest')
-  latest(@Query('limit') limit: string) {
-    return this.punchesService.getLatestPunches(parseInt(limit) || 50);
+  latest(
+    @Query('limit') limit?: string,
+    @Query('employeeId') employeeId?: string,
+  ) {
+    const n = limit !== undefined ? parseInt(limit, 10) : undefined;
+
+    if (limit !== undefined && Number.isNaN(n)) {
+      throw new BadRequestException("Invalid number for 'limit'");
+    }
+
+    return this.punchesService.getLatestPunches(n, employeeId);
   }
 
-  @Get(':employeeId')
-  async getPunchesByEmployee(
-    @Param('employeeId') employeeId: string,
+  @Get()
+  async getPunches(
+    @Query('employeeId') employeeId?: string,
+    @Query('name') name?: string,
     @Query('date') date?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -48,6 +58,6 @@ export class PunchesController {
       eventTime = { from: fromDate, to: toDate };
     }
 
-    return this.punchesService.getPunchesByEmployeeId(employeeId, eventTime);
+    return this.punchesService.getPunches({ employeeId, name, eventTime });
   }
 }

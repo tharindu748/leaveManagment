@@ -2,7 +2,7 @@ import type { OutletContextType } from "@/layouts/main-layout";
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
 import { DataTable } from "@/components/data-table";
-import { columns, type Calculate } from "../components/columns";
+import { columns, type Calculate } from "../components/table/columns";
 import PageHeader from "@/components/page-header/wrapper";
 import PageHeaderTitle from "@/components/page-header/title";
 import api from "@/api/axios";

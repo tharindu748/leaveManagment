@@ -13,6 +13,8 @@ import UsersPage1 from "@/features/users/pages";
 import DeviceConfigPage from "@/features/settings/pages";
 import TimeConfigPage from "@/features/settings/pages/time-config-page";
 import LeaveManagementPage from "@/features/Attendance/page/leave-manage-page";
+import UserPunchesPage from "@/features/Activities/pages/user-punches";
+import TimeCalcPage from "@/features/Attendance/page/times-page";
 
 const AppRoutes = () => {
   return (
@@ -27,12 +29,14 @@ const AppRoutes = () => {
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={<CalendarLeave />} />
-          <Route path="/activity" element={<ActivityPage />} />
+          <Route path="/activity/times" element={<ActivityPage />} />
+          <Route path="/activity/punches" element={<UserPunchesPage />} />
           <Route path="/attendance/punches" element={<PunchesPage />} />
           <Route
             path="/attendance/leave-management"
             element={<LeaveManagementPage />}
           />
+          <Route path="/attendance/times" element={<TimeCalcPage />} />
           <Route path="/users1" element={<UsersPage1 />} />
           <Route path="/device-config" element={<DeviceConfigPage />} />
           <Route path="/time-config" element={<TimeConfigPage />} />

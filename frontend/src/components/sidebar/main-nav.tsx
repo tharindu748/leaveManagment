@@ -53,9 +53,20 @@ const items: MenuItem[] = [
   {
     title: "Activity",
     icon: Activity,
-    url: "/activity",
-    items: [],
+    url: "#",
     visibleFor: "all",
+    items: [
+      {
+        title: "Punches",
+        url: "/activity/punches",
+        visibleFor: "all",
+      },
+      {
+        title: "Timing",
+        url: "/activity/times",
+        visibleFor: "all",
+      },
+    ],
   },
   {
     title: "Attendance",
@@ -71,6 +82,11 @@ const items: MenuItem[] = [
       {
         title: "Leave Management",
         url: "/attendance/leave-management",
+        visibleFor: "all",
+      },
+      {
+        title: "Timing",
+        url: "/attendance/times",
         visibleFor: "all",
       },
     ],

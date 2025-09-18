@@ -4,25 +4,28 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Direction, Source } from '@prisma/client';
+import { Direction, Prisma, Source } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePunchDto } from './dto/punches.dto';
+
+type EventTime = Date | { from: Date; to: Date };
+
+interface GetPunchesParams {
+  employeeId?: string;
+  name?: string; // search by user's name (contains, case-insensitive)
+  eventTime?: EventTime;
+}
 
 @Injectable()
 export class PunchesService {
   constructor(private prisma: DatabaseService) {}
 
-  async getLatestPunches(limit = 50) {
+  async getLatestPunches(limit?: number, employeeId?: string) {
     return this.prisma.punch.findMany({
-      orderBy: { correctEventTime: 'desc' }, // use corrected timeline
-      take: limit,
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      where: employeeId ? { employeeId } : undefined,
+      orderBy: [{ correctEventTime: 'desc' }, { eventTime: 'desc' }],
+      ...(typeof limit === 'number' ? { take: limit } : {}),
+      include: { user: { select: { name: true } } },
     });
   }
 
@@ -89,44 +92,48 @@ export class PunchesService {
     return last.direction === Direction.IN ? Direction.OUT : Direction.IN;
   }
 
-  async getPunchesByEmployeeId(
-    employeeId: string,
-    eventTime?: Date | { from: Date; to: Date },
-  ) {
+  private buildDateFilter(eventTime?: EventTime) {
+    if (!eventTime) return undefined;
+
+    if (eventTime instanceof Date) {
+      const start = new Date(eventTime);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(eventTime);
+      end.setHours(23, 59, 59, 999);
+
+      return { gte: start, lte: end };
+    }
+
+    if (eventTime.from && eventTime.to) {
+      return { gte: new Date(eventTime.from), lte: new Date(eventTime.to) };
+    }
+
+    return undefined;
+  }
+
+  async getPunches({ employeeId, name, eventTime }: GetPunchesParams) {
     try {
-      let dateFilter: any = undefined;
+      const dateFilter = this.buildDateFilter(eventTime);
 
-      if (eventTime instanceof Date) {
-        const start = new Date(eventTime);
-        start.setHours(0, 0, 0, 0);
-
-        const end = new Date(eventTime);
-        end.setHours(23, 59, 59, 999);
-
-        dateFilter = {
-          gte: start,
-          lte: end,
-        };
-      } else if (eventTime?.from && eventTime?.to) {
-        // Date range
-        dateFilter = {
-          gte: new Date(eventTime.from),
-          lte: new Date(eventTime.to),
-        };
-      }
+      const where: Prisma.PunchWhereInput = {
+        ...(employeeId && { employeeId }),
+        ...(name && {
+          user: {
+            name: { contains: name, mode: 'insensitive' },
+          },
+        }),
+        ...(dateFilter && { correctEventTime: dateFilter }),
+      };
 
       return await this.prisma.punch.findMany({
-        where: {
-          employeeId,
-          ...(dateFilter && { correctEventTime: dateFilter }),
-        },
-        orderBy: { correctEventTime: 'desc' },
+        where,
+        orderBy: [
+          { correctEventTime: 'desc' },
+          { eventTime: 'desc' }, // fallback sort
+        ],
         include: {
-          user: {
-            select: {
-              name: true,
-            },
-          },
+          user: { select: { name: true } },
         },
       });
     } catch (error) {
