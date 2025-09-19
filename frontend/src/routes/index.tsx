@@ -15,6 +15,7 @@ import TimeConfigPage from "@/features/settings/pages/time-config-page";
 import LeaveManagementPage from "@/features/Attendance/page/leave-manage-page";
 import UserPunchesPage from "@/features/Activities/pages/user-punches";
 import TimeCalcPage from "@/features/Attendance/page/times-page";
+import LeavePolicyPage from "@/features/settings/pages/leave-policy-page";
 
 const AppRoutes = () => {
   return (
@@ -40,6 +41,7 @@ const AppRoutes = () => {
           <Route path="/users1" element={<UsersPage1 />} />
           <Route path="/device-config" element={<DeviceConfigPage />} />
           <Route path="/time-config" element={<TimeConfigPage />} />
+          <Route path="/leave-policy" element={<LeavePolicyPage />} />
         </Route>
       </Route>
 

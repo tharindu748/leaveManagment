@@ -120,6 +120,11 @@ const items: MenuItem[] = [
         url: "/time-config",
         visibleFor: "all",
       },
+      {
+        title: "Leave Policy",
+        url: "/leave-policy",
+        visibleFor: "all",
+      },
     ],
   },
 ];
