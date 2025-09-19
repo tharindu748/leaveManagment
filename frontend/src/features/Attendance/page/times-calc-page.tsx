@@ -7,8 +7,11 @@ import { useAttendance } from "../components/hooks/useAttendance";
 import Toolbar from "../components/Toolbar";
 import DayTable from "../components/Table/day-table";
 import MonthTable from "../components/Table/month-table";
+import { useOutletContext } from "react-router";
+import type { OutletContextType } from "@/layouts/main-layout";
 
 export default function TimeCalcPage() {
+  const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const today = new Date();
   const [mode, setMode] = useState<Mode>("day");
   const [selectedDate, setSelectedDate] = useState<string>(toDateKey(today));
@@ -25,6 +28,7 @@ export default function TimeCalcPage() {
 
   // Keep month in sync when day changes month
   useEffect(() => {
+    setBreadcrumb(["Attendance", "Time Calculation"]);
     if (mode !== "day") return;
     const d = new Date(selectedDate + "T00:00:00");
     const monthStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
@@ -34,13 +38,11 @@ export default function TimeCalcPage() {
   return (
     <div className="space-y-6">
       <PageHeader>
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <PageHeaderTitle value="Timing" />
-            <p className="text-xs text-gray-500">
-              Live data · switch Day/Month to change table headers.
-            </p>
-          </div>
+        <PageHeaderTitle value="Time Calculation" />
+      </PageHeader>
+
+      <div className="rounded-lg border p-4">
+        <div className="flex justify-end mb-4">
           <Toolbar
             mode={mode}
             setMode={setMode}
@@ -52,9 +54,6 @@ export default function TimeCalcPage() {
             setSearch={setSearch}
           />
         </div>
-      </PageHeader>
-
-      <div className="rounded-lg border p-4">
         {loading ? (
           <div className="p-6 text-sm text-gray-500">Loading…</div>
         ) : error ? (
