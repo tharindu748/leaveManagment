@@ -102,16 +102,6 @@ const items: MenuItem[] = [
         url: "/users1",
         visibleFor: "all",
       },
-      {
-        title: "Attendance2",
-        url: "/attendance2",
-        visibleFor: "all",
-      },
-      {
-        title: "Attendance3",
-        url: "/attendance2",
-        visibleFor: "all",
-      },
     ],
   },
   {

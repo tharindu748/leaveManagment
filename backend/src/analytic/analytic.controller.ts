@@ -1,19 +1,28 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { AnalyticService } from './analytic.service';
 
+function toISODateOnly(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+class OptionalDateParamPipe {
+  transform(value?: string) {
+    if (!value) return undefined;
+    // Accept only YYYY-MM-DD
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new Error('date must be in YYYY-MM-DD format');
+    }
+    return value;
+  }
+}
+
 @Controller('reports')
 export class AnalyticController {
   constructor(private readonly analyticService: AnalyticService) {}
 
-  /**
-   * Returns per-user summary:
-   * [{ id, name, late, workingDays }]
-   *
-   * Query params (optional):
-   * - start: ISO date (YYYY-MM-DD)
-   * - end: ISO date (YYYY-MM-DD)
-   * - employeeId: filter to a single employeeId (users.employee_id)
-   */
   @Get('attendance-summary')
   async getAttendanceSummary(
     @Query('start') start?: string,
@@ -27,15 +36,6 @@ export class AnalyticController {
     });
   }
 
-  /**
-   * Returns top most late employees, sorted by late desc:
-   * [{ id, name, avatar, late, workingDays }]
-   *
-   * Query params (optional):
-   * - start: ISO date (YYYY-MM-DD)
-   * - end: ISO date (YYYY-MM-DD)
-   * - limit: number of results (default: 5)
-   */
   @Get('most-late-employees')
   async getMostLateEmployees(
     @Query('start') start?: string,
@@ -49,15 +49,6 @@ export class AnalyticController {
     });
   }
 
-  /**
-   * Returns top least late employees, sorted by late asc:
-   * [{ id, name, avatar, late, workingDays }]
-   *
-   * Query params (optional):
-   * - start: ISO date (YYYY-MM-DD)
-   * - end: ISO date (YYYY-MM-DD)
-   * - limit: number of results (default: 5)
-   */
   @Get('least-late-employees')
   async getLeastLateEmployees(
     @Query('start') start?: string,
@@ -69,5 +60,11 @@ export class AnalyticController {
       end,
       limit: limit ? Number(limit) : undefined,
     });
+  }
+
+  @Get('summary')
+  async getSummary(@Query('date', new OptionalDateParamPipe()) date?: string) {
+    const dateStr = date ?? toISODateOnly(new Date());
+    return this.analyticService.getDailySummary(dateStr);
   }
 }
