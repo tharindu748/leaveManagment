@@ -14,7 +14,7 @@ import DeviceConfigPage from "@/features/settings/pages";
 import TimeConfigPage from "@/features/settings/pages/time-config-page";
 import LeaveManagementPage from "@/features/Attendance/page/leave-manage-page";
 import UserPunchesPage from "@/features/Activities/pages/user-punches";
-import TimeCalcPage from "@/features/Attendance/page/times-page";
+import TimeCalcPage from "@/features/Attendance/page/times-calc-page";
 import LeavePolicyPage from "@/features/settings/pages/leave-policy-page";
 
 const AppRoutes = () => {
