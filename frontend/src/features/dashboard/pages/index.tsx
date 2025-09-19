@@ -7,6 +7,8 @@ import type { OutletContextType } from "@/layouts/main-layout";
 import PageHeader from "@/components/page-header/wrapper";
 import PageHeaderTitle from "@/components/page-header/title";
 import BarChart from "../components/bar-chart";
+import api from "@/api/axios";
+import { set } from "zod";
 
 interface AttendanceCard {
   title: string;
@@ -29,41 +31,27 @@ interface Employee {
 
 const Dashboard = () => {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
-  const [data, setData] = useState<LeaveRequest[]>([]);
+  const [mostData, setMostData] = useState<LeaveRequest[]>([]);
+  const [leastData, setLeastData] = useState<LeaveRequest[]>([]);
 
-  const mostLates: Employee[] = [
-    {
-      id: 1,
-      name: "Md Ashid Ibrahim",
-      avatar: "/api/placeholder/40/40",
-      late: 6,
-      workingDays: 6,
-    },
-    {
-      id: 2,
-      name: "MD Saikur Rahman",
-      avatar: "/api/placeholder/40/40",
-      late: 6,
-      workingDays: 6,
-    },
-  ];
-
-  const leastLates: Employee[] = [
-    {
-      id: 1,
-      name: "Shahasada Islam",
-      avatar: "/api/placeholder/40/40",
-      late: 0,
-      workingDays: 6,
-    },
-    {
-      id: 2,
-      name: "Md Adnan",
-      avatar: "/api/placeholder/40/40",
-      late: 0,
-      workingDays: 4,
-    },
-  ];
+  const fetchMostLate = async () => {
+    try {
+      const res = await api.get("/reports/most-most-employees");
+      setMostData(res.data);
+      console.log(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  const fetchLeastLate = async () => {
+    try {
+      const res = await api.get("/reports/most-late-employees");
+      setLeastData(res.data);
+      console.log(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   const attendanceFeed: Employee[] = [
     {
@@ -127,6 +115,8 @@ const Dashboard = () => {
 
   useEffect(() => {
     setBreadcrumb(["Dashboard"]);
+    fetchMostLate();
+    fetchLeastLate();
   }, []);
 
   return (
@@ -183,12 +173,12 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="rounded-lg border p-6 mt-3">
                   <h2 className="mb-4 font-semibold">Most Lates</h2>
-                  <DataTable2 columns={columns} data={data} />
+                  <DataTable2 columns={columns} data={mostData} />
                 </div>
 
                 <div className="rounded-lg border p-6 mt-3">
                   <h2 className="mb-4 font-semibold">Least Lates</h2>
-                  <DataTable2 columns={columns} data={data} />
+                  <DataTable2 columns={columns} data={leastData} />
                 </div>
               </div>
             </div>

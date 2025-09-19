@@ -174,7 +174,6 @@ const CalendarLeave: React.FC = () => {
         </div>
       </div>
 
-      {/* --- Modal for quick leave apply --- */}
       <LeaveModal
         isOpen={isModalOpen}
         onClose={() => setModalOpen(false)}

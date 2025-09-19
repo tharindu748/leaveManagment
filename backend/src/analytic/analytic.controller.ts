@@ -11,7 +11,7 @@ export class AnalyticController {
    *
    * Query params (optional):
    * - start: ISO date (YYYY-MM-DD)
-   * - end:   ISO date (YYYY-MM-DD)
+   * - end: ISO date (YYYY-MM-DD)
    * - employeeId: filter to a single employeeId (users.employee_id)
    */
   @Get('attendance-summary')
@@ -24,6 +24,50 @@ export class AnalyticController {
       start,
       end,
       employeeId,
+    });
+  }
+
+  /**
+   * Returns top most late employees, sorted by late desc:
+   * [{ id, name, avatar, late, workingDays }]
+   *
+   * Query params (optional):
+   * - start: ISO date (YYYY-MM-DD)
+   * - end: ISO date (YYYY-MM-DD)
+   * - limit: number of results (default: 5)
+   */
+  @Get('most-late-employees')
+  async getMostLateEmployees(
+    @Query('start') start?: string,
+    @Query('end') end?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.analyticService.getMostLateEmployees({
+      start,
+      end,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  /**
+   * Returns top least late employees, sorted by late asc:
+   * [{ id, name, avatar, late, workingDays }]
+   *
+   * Query params (optional):
+   * - start: ISO date (YYYY-MM-DD)
+   * - end: ISO date (YYYY-MM-DD)
+   * - limit: number of results (default: 5)
+   */
+  @Get('least-late-employees')
+  async getLeastLateEmployees(
+    @Query('start') start?: string,
+    @Query('end') end?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.analyticService.getLeastLateEmployees({
+      start,
+      end,
+      limit: limit ? Number(limit) : undefined,
     });
   }
 }

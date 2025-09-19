@@ -7,11 +7,21 @@ type SummaryParams = {
   employeeId?: string; // users.employee_id
 };
 
+type TopParams = {
+  start?: string;
+  end?: string;
+  limit?: number;
+};
+
 type SummaryRow = {
   id: number;
   name: string;
   late: number;
   workingDays: number;
+};
+
+type TopRow = SummaryRow & {
+  avatar: string;
 };
 
 @Injectable()
@@ -29,38 +39,32 @@ export class AnalyticService {
    */
   async getEmployeeWorkSummary(params: SummaryParams): Promise<SummaryRow[]> {
     const { start, end, employeeId } = params;
-
     const { startDate, endDateExclusive } = this.resolveDateRange(start, end);
-
     // Get latest attendance config (for workStart time-of-day)
     const latestConfig = await this.database.attendanceConfig.findFirst({
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
     });
-
     // Default 09:00 if no config exists yet
     const workStartSeconds = this.timeOfDayToSeconds(
       latestConfig?.workStart ?? new Date(2000, 0, 1, 9, 0, 0),
     );
-
     // Get users (active) — optionally filter by employeeId
     const users = await this.database.user.findMany({
       where: {
         active: true,
+        employeeId: { not: null },
         ...(employeeId ? { employeeId } : {}),
       },
       select: { id: true, name: true, employeeId: true },
       orderBy: { id: 'asc' },
     });
-
     if (users.length === 0) {
       return [];
     }
-
     // Pull all attendance rows for these employeeIds within the range in ONE go
     const allEmployeeIds = users
       .map((u) => u.employeeId)
       .filter((v): v is string => Boolean(v));
-
     const attendance = await this.database.attendanceDay.findMany({
       where: {
         employeeId: { in: allEmployeeIds },
@@ -76,31 +80,25 @@ export class AnalyticService {
         workedSeconds: true,
       },
     });
-
     // Group by employeeId for fast lookup
     const byEmp: Record<string, typeof attendance> = {};
     for (const row of attendance) {
       if (!byEmp[row.employeeId]) byEmp[row.employeeId] = [];
       byEmp[row.employeeId].push(row);
     }
-
     // Build response
     const summary: SummaryRow[] = users.map((u) => {
       const rows = u.employeeId ? (byEmp[u.employeeId] ?? []) : [];
-
       const workingDays = rows.reduce(
         (acc, r) => acc + (r.workedSeconds > 0 ? 1 : 0),
         0,
       );
-
       const late = rows.reduce((acc, r) => {
         const fi = (r.firstIn ?? '').trim();
         if (!fi) return acc;
-
         const firstInSeconds = this.parseClockStringToSeconds(fi); // fallback 0 if parse fails
         return acc + (firstInSeconds > workStartSeconds ? 1 : 0);
       }, 0);
-
       return {
         id: u.id,
         name: u.name,
@@ -108,12 +106,38 @@ export class AnalyticService {
         workingDays,
       };
     });
-
     return summary;
   }
 
-  // ---- helpers ----
+  async getMostLateEmployees(params: TopParams): Promise<TopRow[]> {
+    const { start, end, limit } = params;
+    let summary = await this.getEmployeeWorkSummary({ start, end });
+    summary = summary.filter((s) => s.workingDays > 0);
+    summary = summary.sort(
+      (a, b) => b.late - a.late || a.workingDays - b.workingDays || a.id - b.id,
+    );
+    const lim = limit ?? 5;
+    return summary.slice(0, lim).map((s) => ({
+      ...s,
+      avatar: '/api/placeholder/40/40',
+    }));
+  }
 
+  async getLeastLateEmployees(params: TopParams): Promise<TopRow[]> {
+    const { start, end, limit } = params;
+    let summary = await this.getEmployeeWorkSummary({ start, end });
+    summary = summary.filter((s) => s.workingDays > 0);
+    summary = summary.sort(
+      (a, b) => a.late - b.late || b.workingDays - a.workingDays || a.id - b.id,
+    );
+    const lim = limit ?? 5;
+    return summary.slice(0, lim).map((s) => ({
+      ...s,
+      avatar: '/api/placeholder/40/40',
+    }));
+  }
+
+  // ---- helpers ----
   /**
    * Turn "HH:mm" or "HH:mm:ss" into seconds since midnight. Returns 0 if invalid.
    */
@@ -158,16 +182,13 @@ export class AnalyticService {
     end?: string,
   ): { startDate: Date; endDateExclusive: Date } {
     const now = new Date();
-
     let startDate: Date;
     let endDateInclusive: Date;
-
     if (start) {
       startDate = new Date(start + 'T00:00:00');
     } else {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
     }
-
     if (end) {
       endDateInclusive = new Date(end + 'T00:00:00');
     } else {
@@ -180,7 +201,6 @@ export class AnalyticService {
         0,
       );
     }
-
     // end exclusive = end + 1 day
     const endDateExclusive = new Date(endDateInclusive);
     endDateExclusive.setDate(endDateExclusive.getDate() + 1);
