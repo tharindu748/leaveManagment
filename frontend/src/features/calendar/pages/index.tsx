@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLeave, type LeaveType } from "../hooks/use-leave";
+import { useLeave, type LeaveStatus, type LeaveType } from "../hooks/use-leave";
 import LeaveCard from "../components/leave-card";
 
 import LeaveSidePanel from "../components/LeaveSidePanel";
@@ -103,7 +103,27 @@ const CalendarLeave: React.FC = () => {
 
     const res = await api.post("/leave/request", body);
 
-    datesPayload.forEach(({ date }) => applyLeave(date, type));
+    // Optimistic update
+    const newLeaves = dates.map((d) => {
+      const key = formatDate(d);
+      const duration = durationsMap[key] ?? "FULL";
+      const isHalfDay = duration !== "FULL";
+      return {
+        id: Date.now() + Math.random(),
+        date: key,
+        type,
+        status: "PENDING" as LeaveStatus,
+        isHalfDay,
+      };
+    });
+
+    const deduction = dates.reduce((sum, d) => {
+      const key = formatDate(d);
+      const isHalfDay = durationsMap[key] !== "FULL";
+      return sum + (isHalfDay ? 0.5 : 1);
+    }, 0);
+
+    applyLeave(newLeaves, type, deduction);
 
     return res.data;
   };

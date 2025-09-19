@@ -24,49 +24,17 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
 }) => {
   const [reason, setReason] = useState("");
 
-  const formatKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-      d.getDate()
-    ).padStart(2, "0")}`;
-
-  const buildDatesPayload = () =>
-    selectedDates.map((d) => {
-      const key = formatKey(d);
-      const duration = dayDurations[key] || "FULL";
-      if (duration === "FULL") {
-        return { date: key, isHalfDay: false };
-      }
-      return {
-        date: key,
-        isHalfDay: true,
-        halfDayType: duration as "MORNING" | "AFTERNOON",
-      };
-    });
-
-  const handleApplyClick = async () => {
-    if (!leaveType || selectedDates.length === 0) return;
-
-    const body = {
-      userId: 1,
-      approvedBy: null,
-      leaveType: leaveType as LeaveType,
-      reason: reason || undefined,
-      dates: buildDatesPayload(),
-    };
-
-    try {
-      await handleApplyLeave(reason); // update local UI (parent)
-      setReason("");
-    } catch (e: any) {
-      console.error("Leave submit failed:", e?.response?.data || e);
-    }
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   };
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
       <h2 className="text-lg font-semibold mb-4">Apply Leave</h2>
 
-      {/* Leave type dropdown */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-1">Leave Type</label>
         <select
@@ -80,7 +48,6 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
         </select>
       </div>
 
-      {/* Selected days list */}
       <div className="space-y-3 max-h-64 overflow-y-auto">
         {selectedDates.length === 0 ? (
           <p className="text-gray-500 text-sm">
@@ -88,7 +55,7 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
           </p>
         ) : (
           selectedDates.map((date) => {
-            const key = formatKey(date);
+            const key = formatDate(date);
             return (
               <div
                 key={key}
@@ -139,7 +106,7 @@ const LeaveSidePanel: React.FC<LeaveSidePanelProps> = ({
       {/* Apply button */}
       {selectedDates.length > 0 && (
         <button
-          onClick={handleApplyClick}
+          onClick={() => handleApplyLeave(reason)}
           className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           disabled={!leaveType}
         >

@@ -6,8 +6,9 @@ import type { Leave } from "../hooks/use-leave";
 interface CalendarProps {
   onDayClick: (date: Date) => void;
   selectedDates?: Date[];
-  leaves: Array<Pick<Leave, "id" | "date" | "status">>;
+  leaves: Array<Pick<Leave, "id" | "date" | "status" | "isHalfDay">>;
 }
+type CalendarLeaf = CalendarProps["leaves"][number];
 
 const WEEKDAYS_MON_FIRST = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -30,16 +31,15 @@ const Calendar = ({
   const month = currentDate.getMonth();
   const year = currentDate.getFullYear();
 
-  // Build a lookup for leaves by date
   const leavesByDate = useMemo(() => {
-    const map = new Map<string, Pick<Leave, "id" | "date" | "status">>();
+    const map = new Map<string, CalendarLeaf[]>();
     for (const l of leaves) {
-      if (!map.has(l.date)) map.set(l.date, l);
+      if (!map.has(l.date)) map.set(l.date, []);
+      map.get(l.date)!.push(l);
     }
     return map;
   }, [leaves]);
 
-  // Compute grid start (Monday-first)
   const gridStart = useMemo(() => {
     const firstOfMonth = new Date(year, month, 1);
     const jsDay = firstOfMonth.getDay();
@@ -49,7 +49,6 @@ const Calendar = ({
     return start;
   }, [year, month]);
 
-  // 35 calendar cells (5 rows)
   const cells: Date[] = useMemo(
     () =>
       Array.from({ length: 35 }, (_, i) => {
@@ -77,7 +76,6 @@ const Calendar = ({
 
   return (
     <div className="mt-6 bg-white rounded-lg shadow-md p-6 max-w-full">
-      {/* Header */}
       <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6">
           <div className="flex items-center justify-between">
@@ -97,7 +95,6 @@ const Calendar = ({
           </div>
         </div>
 
-        {/* Month Navigation */}
         <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center bg-white/10 rounded-lg backdrop-blur">
@@ -127,7 +124,6 @@ const Calendar = ({
         </div>
       </div>
 
-      {/* Week header */}
       <div className="grid grid-cols-7 mb-2">
         {WEEKDAYS_MON_FIRST.map((label, index) => (
           <div
@@ -141,21 +137,26 @@ const Calendar = ({
         ))}
       </div>
 
-      {/* Calendar cells */}
       <div className="grid grid-cols-7 gap-1">
         {cells.map((d, i) => {
           const inCurrentMonth = d.getMonth() === month;
           const key = formatKey(d);
-          const leave = leavesByDate.get(key) ?? null;
+          const leavesOnDate = leavesByDate.get(key) ?? [];
           const clickable = inCurrentMonth;
 
-          const rawStatus = (leave?.status ?? "") as string;
-          const statusKey = rawStatus.toLowerCase() as
-            | "pending"
-            | "approved"
-            | "rejected";
+          let status: "pending" | "approved" | "rejected" | "" = "";
+          if (leavesOnDate.some((l) => l.status === "APPROVED")) {
+            status = "approved";
+          } else if (leavesOnDate.some((l) => l.status === "PENDING")) {
+            status = "pending";
+          } else if (
+            leavesOnDate.some(
+              (l) => l.status === "CANCELLED" || l.status === "REJECTED"
+            )
+          ) {
+            status = "rejected";
+          }
 
-          // Check if date is selected
           const isSelected = selectedDates.some(
             (sd) =>
               sd.getFullYear() === d.getFullYear() &&
@@ -167,8 +168,7 @@ const Calendar = ({
             ? "border-2 border-blue-500"
             : "border border-gray-200";
 
-          const statusClass =
-            statusKey && statusBg[statusKey] ? statusBg[statusKey] : "";
+          const statusClass = status ? statusBg[status] : "";
 
           const baseBg = inCurrentMonth ? "bg-white" : "bg-slate-50";
           const selectedOverride = isSelected
@@ -222,7 +222,9 @@ const Calendar = ({
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-red-100 border border-red-200 rounded" />
-            <span className="text-sm font-medium text-slate-600">Rejected</span>
+            <span className="text-sm font-medium text-slate-600">
+              Rejected / Cancelled
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-blue-500 rounded" />

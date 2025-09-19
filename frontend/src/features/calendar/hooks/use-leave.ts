@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import api from "@/api/axios";
 
 export type LeaveType = "ANNUAL" | "CASUAL";
-export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
 export interface Leave {
   id: number;
   date: string;
   type: LeaveType;
   status: LeaveStatus;
+  isHalfDay: boolean;
 }
 export interface LeaveSummary {
   total: number;
@@ -41,7 +42,7 @@ type ApiLeaveRequest = {
   id: number;
   userId: number;
   leaveType: "ANNUAL" | "CASUAL" | "SICK";
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   dates: ApiLeaveDate[];
 };
 
@@ -51,22 +52,22 @@ const toYMD = (s: string) => (s ?? "").slice(0, 10);
 const computeSummary = (
   flat: Leave[],
   type: LeaveType,
-  total: number
+  used: number,
+  pending: number,
+  balance: number
 ): LeaveSummary => {
-  const used = flat.filter(
-    (l) => l.type === type && l.status === "APPROVED"
-  ).length;
-  const pending = flat.filter(
-    (l) => l.type === type && l.status === "PENDING"
-  ).length;
-  const available = Math.max(total - used - pending, 0);
+  const total = used + balance;
+  const available = Math.max(balance - pending, 0);
   return { total, used, pending, available };
 };
 
-function normalizeFromRequests(
-  rows: ApiLeaveRequest[],
-  totals = { annual: 14, casual: 7 }
-): LeavesData {
+function normalizeFromRequests(rows: ApiLeaveRequest[]): {
+  flat: Leave[];
+  usedAnnual: number;
+  pendingAnnual: number;
+  usedCasual: number;
+  pendingCasual: number;
+} {
   const flat: Leave[] = rows.flatMap((r) => {
     const type: LeaveType = r.leaveType === "ANNUAL" ? "ANNUAL" : "CASUAL";
     return (r.dates ?? [])
@@ -74,21 +75,29 @@ function normalizeFromRequests(
         id: d.id ?? r.id,
         date: toYMD(d.leaveDate ?? d.date ?? ""),
         type,
-        status: r.status,
+        status: r.status as LeaveStatus,
+        isHalfDay: d.isHalfDay ?? false,
       }))
       .filter((l) => !!l.date);
   });
 
-  // one badge per date
-  const byDate = new Map<string, Leave>();
-  for (const l of flat) if (!byDate.has(l.date)) byDate.set(l.date, l);
-  const unique = Array.from(byDate.values());
+  const usedAnnual = flat
+    .filter((l) => l.type === "ANNUAL" && l.status === "APPROVED")
+    .reduce((sum, l) => sum + (l.isHalfDay ? 0.5 : 1), 0);
 
-  return {
-    annualLeave: computeSummary(unique, "ANNUAL", totals.annual),
-    casualSickLeave: computeSummary(unique, "CASUAL", totals.casual),
-    leaves: unique,
-  };
+  const pendingAnnual = flat
+    .filter((l) => l.type === "ANNUAL" && l.status === "PENDING")
+    .reduce((sum, l) => sum + (l.isHalfDay ? 0.5 : 1), 0);
+
+  const usedCasual = flat
+    .filter((l) => l.type === "CASUAL" && l.status === "APPROVED")
+    .reduce((sum, l) => sum + (l.isHalfDay ? 0.5 : 1), 0);
+
+  const pendingCasual = flat
+    .filter((l) => l.type === "CASUAL" && l.status === "PENDING")
+    .reduce((sum, l) => sum + (l.isHalfDay ? 0.5 : 1), 0);
+
+  return { flat, usedAnnual, pendingAnnual, usedCasual, pendingCasual };
 }
 
 export function useLeave() {
@@ -96,18 +105,56 @@ export function useLeave() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
 
+  const year = new Date().getFullYear();
+
   const fetchLeaves = async () => {
     try {
       setLoading(true);
-      const res = await api.get<ApiLeaveRequest[] | LeavesData>(
-        `/leave/requests?userId=${1}`
+      const [requestsRes, annualBalanceRes, casualBalanceRes] =
+        await Promise.all([
+          api.get<ApiLeaveRequest[] | LeavesData>(
+            `/leave/requests?userId=${1}`
+          ),
+          api.get(`/leave/balance/1/${year}/ANNUAL`),
+          api.get(`/leave/balance/1/${year}/CASUAL`),
+        ]);
+
+      const payload = requestsRes.data;
+      const { flat, usedAnnual, pendingAnnual, usedCasual, pendingCasual } =
+        Array.isArray(payload)
+          ? normalizeFromRequests(payload)
+          : {
+              flat: [],
+              usedAnnual: 0,
+              pendingAnnual: 0,
+              usedCasual: 0,
+              pendingCasual: 0,
+            };
+
+      const annualBalance = annualBalanceRes.data.balance ?? 0;
+      const casualBalance = casualBalanceRes.data.balance ?? 0;
+
+      const annualSummary = computeSummary(
+        flat,
+        "ANNUAL",
+        usedAnnual,
+        pendingAnnual,
+        annualBalance
       );
-      const payload = res.data;
-      const next: LeavesData = Array.isArray(payload)
-        ? normalizeFromRequests(payload)
-        : payload?.annualLeave && payload?.leaves
-        ? (payload as LeavesData)
-        : EMPTY;
+      const casualSummary = computeSummary(
+        flat,
+        "CASUAL",
+        usedCasual,
+        pendingCasual,
+        casualBalance
+      );
+
+      const next: LeavesData = {
+        annualLeave: annualSummary,
+        casualSickLeave: casualSummary,
+        leaves: flat,
+      };
+
       setLeaves(next);
       setError(null);
       console.log("Normalized leaves:", next);
@@ -124,19 +171,19 @@ export function useLeave() {
     fetchLeaves();
   }, []);
 
-  const applyLeave = (date: string, type: LeaveType): Leave => {
-    const newLeave: Leave = { id: Date.now(), date, type, status: "PENDING" };
+  const applyLeave = (
+    newLeaves: Leave[],
+    type: LeaveType,
+    deduction: number
+  ) => {
     setLeaves((prev) => {
-      const state = prev ?? EMPTY;
+      const updatedLeaves = [...prev.leaves, ...newLeaves];
       const key = type === "ANNUAL" ? "annualLeave" : "casualSickLeave";
-      const summary = { ...state[key] };
-      if (summary.available > 0) {
-        summary.available -= 1;
-        summary.pending += 1;
-      }
-      return { ...state, [key]: summary, leaves: [...state.leaves, newLeave] };
+      const summary = { ...prev[key] };
+      summary.pending += deduction;
+      summary.available = Math.max(summary.available - deduction, 0);
+      return { ...prev, [key]: summary, leaves: updatedLeaves };
     });
-    return newLeave;
   };
 
   return { leaves, applyLeave, refetch: fetchLeaves, loading, error };
