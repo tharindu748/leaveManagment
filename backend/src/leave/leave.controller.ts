@@ -65,6 +65,11 @@ export class LeaveController {
     return this.leaveService.cancelLeaveRequest(data);
   }
 
+  @Get('policy')
+  async getLeavePolicy() {
+    return this.leaveService.findLeavePolicy();
+  }
+
   @Patch('policy')
   async updateLeavePolicy(@Body() data: UpdateLeavePolicyDto) {
     return this.leaveService.updateLeavePolicy(

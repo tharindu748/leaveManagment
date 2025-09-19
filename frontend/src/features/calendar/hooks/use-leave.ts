@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/api/axios";
+import { useAuth } from "@/context/auth-context";
 
 export type LeaveType = "ANNUAL" | "CASUAL";
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -101,6 +102,7 @@ function normalizeFromRequests(rows: ApiLeaveRequest[]): {
 }
 
 export function useLeave() {
+  const { user } = useAuth();
   const [leaves, setLeaves] = useState<LeavesData>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -113,10 +115,10 @@ export function useLeave() {
       const [requestsRes, annualBalanceRes, casualBalanceRes] =
         await Promise.all([
           api.get<ApiLeaveRequest[] | LeavesData>(
-            `/leave/requests?userId=${1}`
+            `/leave/requests?userId=${user?.id}`
           ),
-          api.get(`/leave/balance/1/${year}/ANNUAL`),
-          api.get(`/leave/balance/1/${year}/CASUAL`),
+          api.get(`/leave/balance/${user?.id}/${year}/ANNUAL`),
+          api.get(`/leave/balance/${user?.id}/${year}/CASUAL`),
         ]);
 
       const payload = requestsRes.data;

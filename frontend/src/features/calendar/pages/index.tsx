@@ -8,6 +8,7 @@ import type { OutletContextType } from "@/layouts/main-layout";
 import { useOutletContext } from "react-router";
 import api from "@/api/axios";
 import Calendar from "../components/calendar";
+import { useAuth } from "@/context/auth-context";
 
 type DayDuration = "FULL" | "MORNING" | "AFTERNOON";
 
@@ -19,6 +20,7 @@ const formatDate = (d: Date) => {
 };
 
 const CalendarLeave: React.FC = () => {
+  const { user } = useAuth();
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const { leaves, applyLeave } = useLeave();
 
@@ -95,7 +97,7 @@ const CalendarLeave: React.FC = () => {
     });
 
     const body = {
-      userId: 1,
+      userId: user?.id,
       leaveType: type,
       reason: reason || null,
       dates: datesPayload,

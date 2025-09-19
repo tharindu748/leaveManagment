@@ -254,9 +254,7 @@ export class LeaveService {
       create: { leaveType, defaultBalance: newDefaultBalance },
     });
 
-    const oldDefault = policy.defaultBalance; // This is the old value before update? Wait, no—upsert returns updated.
-    // To get delta, fetch old first
-    // Actually, restructure: fetch old, compute delta, then update
+    const oldDefault = policy.defaultBalance;
 
     const existingPolicy = await this.databaseService.leave_policy.findUnique({
       where: { leaveType },
@@ -283,6 +281,10 @@ export class LeaveService {
     return {
       message: `Policy updated for ${leaveType}. Delta ${delta} applied to all current-year balances.`,
     };
+  }
+
+  async findLeavePolicy() {
+    return this.databaseService.leave_policy.findMany();
   }
 
   async findLeaveRequests(userId?: number) {
