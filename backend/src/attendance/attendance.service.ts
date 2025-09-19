@@ -148,39 +148,6 @@ export class AttendanceService {
     );
 
     const totalWorkSeconds = (workEnd.getTime() - workStart.getTime()) / 1000;
-    // const workStart = new Date(
-    //   d.getFullYear(),
-    //   d.getMonth(),
-    //   d.getDate(),
-    //   8,
-    //   0,
-    //   0,
-    // );
-    // const workEnd = new Date(
-    //   d.getFullYear(),
-    //   d.getMonth(),
-    //   d.getDate(),
-    //   16,
-    //   30,
-    //   0,
-    // );
-    // const otEnd = new Date(
-    //   d.getFullYear(),
-    //   d.getMonth(),
-    //   d.getDate(),
-    //   20,
-    //   0,
-    //   0,
-    // );
-    // const earlyStart = new Date(
-    //   d.getFullYear(),
-    //   d.getMonth(),
-    //   d.getDate(),
-    //   7,
-    //   0,
-    //   0,
-    // );
-    // const totalWorkSeconds = (workEnd.getTime() - workStart.getTime()) / 1000;
 
     const punches = await this.prisma.punch.findMany({
       where: {
