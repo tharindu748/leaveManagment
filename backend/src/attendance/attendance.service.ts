@@ -9,6 +9,18 @@ import { DatabaseService } from 'src/database/database.service';
 import { CalculateAttendanceDto } from './dto/attendance.dto';
 import { UpdateAttendanceConfigDto } from './dto/update-attendance-config.dto';
 
+type GetMonthRecordsParams = {
+  month: string; // "YYYY-MM"
+  employeeIds?: string[]; // optional filter
+  timezone: string; // e.g., "Asia/Colombo"
+};
+
+type GetDaySnapshotParams = {
+  date: string; // "YYYY-MM-DD"
+  employeeIds?: string[]; // optional filter
+  timezone: string;
+};
+
 @Injectable()
 export class AttendanceService {
   constructor(private prisma: DatabaseService) {}
@@ -468,5 +480,216 @@ export class AttendanceService {
       results.push(res);
     }
     return results;
+  }
+
+  private parseMonthRange(month: string): { start: Date; end: Date } {
+    // Treat as local time range (00:00 at local to next month 00:00)
+    const [y, m] = month.split('-').map((n) => parseInt(n, 10));
+    const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const end = new Date(y, m, 1, 0, 0, 0, 0); // first day of next month
+    return { start, end };
+  }
+
+  private parseDayRange(date: string): { start: Date; end: Date } {
+    const [y, m, d] = date.split('-').map((n) => parseInt(n, 10));
+    const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const end = new Date(y, m - 1, d + 1, 0, 0, 0, 0);
+    return { start, end };
+  }
+
+  private dateKey(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  private buildMonthSkeleton(month: string): string[] {
+    const { start, end } = this.parseMonthRange(month);
+    const days: string[] = [];
+    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+      days.push(this.dateKey(d));
+    }
+    return days;
+  }
+
+  /**
+   * 1) Monthly raw records endpoint service
+   * Returns:
+   * {
+   *   month, timezone,
+   *   employees: [
+   *     { id, name, records: [{ date, start, lastOut, workedSeconds, notWorkingSeconds, overtimeSeconds }, ...all days...] }
+   *   ]
+   * }
+   */
+  async getMonthRecords(params: GetMonthRecordsParams) {
+    const { month, employeeIds, timezone } = params;
+    const { start, end } = this.parseMonthRange(month);
+
+    // Resolve employees (active, with employeeId); optional filter
+    const users = await this.prisma.user.findMany({
+      where: {
+        active: true,
+        employeeId: { not: null },
+        ...(employeeIds?.length ? { employeeId: { in: employeeIds } } : {}),
+      },
+      select: { employeeId: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const empIds = users.map((u) => u.employeeId!) as string[];
+    if (empIds.length === 0) {
+      return { month, timezone, employees: [] };
+    }
+
+    // Pull all attendance rows in month for these employees
+    const rows = await this.prisma.attendanceDay.findMany({
+      where: {
+        employeeId: { in: empIds },
+        workDate: { gte: start, lt: end },
+      },
+      select: {
+        employeeId: true,
+        workDate: true,
+        startTime: true,
+        firstIn: true,
+        lastOut: true,
+        workedSeconds: true,
+        notWorkingSeconds: true,
+        overtimeSeconds: true,
+      },
+      orderBy: [{ employeeId: 'asc' }, { workDate: 'asc' }],
+    });
+
+    // Index by empId + date
+    const byEmpDate = new Map<
+      string,
+      {
+        startTime: string | null;
+        firstIn: string | null;
+        lastOut: string | null;
+        workedSeconds: number;
+        notWorkingSeconds: number;
+        overtimeSeconds: number;
+      }
+    >();
+    for (const r of rows) {
+      const key = `${r.employeeId}::${this.dateKey(r.workDate)}`;
+      byEmpDate.set(key, {
+        startTime: r.startTime,
+        firstIn: r.firstIn,
+        lastOut: r.lastOut,
+        workedSeconds: r.workedSeconds ?? 0,
+        notWorkingSeconds: r.notWorkingSeconds ?? 0,
+        overtimeSeconds: r.overtimeSeconds ?? 0,
+      });
+    }
+
+    const days = this.buildMonthSkeleton(month);
+
+    const employees = users.map((u) => {
+      const records = days.map((dkey) => {
+        const k = `${u.employeeId}::${dkey}`;
+        const r = byEmpDate.get(k);
+        const start = r?.startTime ?? r?.firstIn ?? null;
+        const lastOut = r?.lastOut ?? null;
+        return {
+          date: dkey,
+          start,
+          lastOut,
+          workedSeconds: r?.workedSeconds ?? 0,
+          notWorkingSeconds: r?.notWorkingSeconds ?? 0,
+          overtimeSeconds: r?.overtimeSeconds ?? 0,
+        };
+      });
+      return { id: u.employeeId!, name: u.name, records };
+    });
+
+    return { month, timezone, employees };
+  }
+
+  /**
+   * 2) Single-day snapshot service
+   * Returns:
+   * {
+   *   date, timezone,
+   *   employees: [{ id, name, start, lastOut, workedSeconds, notWorkingSeconds, overtimeSeconds }]
+   * }
+   */
+  async getDaySnapshot(params: GetDaySnapshotParams) {
+    const { date, employeeIds, timezone } = params;
+    const { start, end } = this.parseDayRange(date);
+
+    // Resolve employees (active, with employeeId); optional filter
+    const users = await this.prisma.user.findMany({
+      where: {
+        active: true,
+        employeeId: { not: null },
+        ...(employeeIds?.length ? { employeeId: { in: employeeIds } } : {}),
+      },
+      select: { employeeId: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const empIds = users.map((u) => u.employeeId!) as string[];
+    if (empIds.length === 0) {
+      return { date, timezone, employees: [] };
+    }
+
+    // Pull day rows
+    const rows = await this.prisma.attendanceDay.findMany({
+      where: {
+        employeeId: { in: empIds },
+        workDate: { gte: start, lt: end },
+      },
+      select: {
+        employeeId: true,
+        startTime: true,
+        firstIn: true,
+        lastOut: true,
+        workedSeconds: true,
+        notWorkingSeconds: true,
+        overtimeSeconds: true,
+      },
+    });
+
+    const byEmp = new Map<
+      string,
+      {
+        startTime: string | null;
+        firstIn: string | null;
+        lastOut: string | null;
+        workedSeconds: number;
+        notWorkingSeconds: number;
+        overtimeSeconds: number;
+      }
+    >();
+    for (const r of rows) {
+      byEmp.set(r.employeeId, {
+        startTime: r.startTime,
+        firstIn: r.firstIn,
+        lastOut: r.lastOut,
+        workedSeconds: r.workedSeconds ?? 0,
+        notWorkingSeconds: r.notWorkingSeconds ?? 0,
+        overtimeSeconds: r.overtimeSeconds ?? 0,
+      });
+    }
+
+    const employees = users.map((u) => {
+      const r = byEmp.get(u.employeeId!);
+      const startVal = r?.startTime ?? r?.firstIn ?? null;
+      return {
+        id: u.employeeId!,
+        name: u.name,
+        start: startVal,
+        lastOut: r?.lastOut ?? null,
+        workedSeconds: r?.workedSeconds ?? 0,
+        notWorkingSeconds: r?.notWorkingSeconds ?? 0,
+        overtimeSeconds: r?.overtimeSeconds ?? 0,
+      };
+    });
+
+    return { date, timezone, employees };
   }
 }

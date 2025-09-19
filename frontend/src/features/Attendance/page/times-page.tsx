@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/data-table";
+import { DataTable2 } from "@/components/data-table";
 import PageHeader from "@/components/page-header/wrapper";
 import PageHeaderTitle from "@/components/page-header/title";
+import api from "@/api/axios";
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -24,8 +25,8 @@ type Mode = "day" | "month";
 
 export type DayRow = {
   employee: string;
-  start: string;
-  lastOut: string;
+  start: string | null;
+  lastOut: string | null;
   workedSeconds: number;
   notWorkingSeconds: number;
   overtimeSeconds: number;
@@ -43,77 +44,38 @@ export type MonthRow = {
 };
 
 // ---------------------------------------------------------------------------
-// Mock data generation
+// API response types
 
-type DayRecord = {
-  date: string; // YYYY-MM-DD
-  start: string; // HH:mm
-  lastOut: string; // HH:mm
-  workedSeconds: number;
-  notWorkingSeconds: number;
-  overtimeSeconds: number;
+type AttendanceMonthResponse = {
+  month: string; // YYYY-MM
+  timezone: string;
+  employees: {
+    id: string;
+    name: string;
+    records: {
+      date: string; // YYYY-MM-DD
+      start: string | null; // HH:mm or null
+      lastOut: string | null;
+      workedSeconds: number;
+      notWorkingSeconds: number;
+      overtimeSeconds: number;
+    }[];
+  }[];
 };
 
-type Employee = { id: string; name: string; records: DayRecord[] };
-
-function seededRandom(seed: number) {
-  let s = seed % 2147483647;
-  if (s <= 0) s += 2147483646;
-  return () => (s = (s * 16807) % 2147483647) / 2147483647;
-}
-
-function genMockForMonth(
-  year: number,
-  monthIndex0: number,
-  employees: string[]
-): Employee[] {
-  const end = new Date(year, monthIndex0 + 1, 0);
-  const daysInMonth = end.getDate();
-
-  return employees.map((name, idx) => {
-    const rnd = seededRandom(year * 1000 + monthIndex0 * 50 + idx);
-    const records: DayRecord[] = [];
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(year, monthIndex0, day);
-      const dow = d.getDay(); // 0 Sun .. 6 Sat
-      const isWeekend = dow === 0 || dow === 6;
-
-      const workedH = isWeekend
-        ? rnd() < 0.2
-          ? 4 + Math.floor(rnd() * 2)
-          : 0
-        : 7 + Math.floor(rnd() * 3);
-      const workedSeconds = workedH * 3600 + Math.floor(rnd() * 60) * 60;
-      const notWork = workedSeconds === 0 ? 0 : (0.5 + rnd() * 1.5) * 3600; // 0.5-2h
-      const overtime =
-        workedSeconds > 8 * 3600 ? Math.max(0, workedSeconds - 8 * 3600) : 0;
-
-      // start/lastOut
-      let startH = 9 + Math.floor(rnd() * 2); // 9-10
-      let startM = Math.floor(rnd() * 60);
-      let startStr = `${pad(startH)}:${pad(startM)}`;
-      let lastOutStr = startStr;
-      if (workedSeconds > 0) {
-        const endDate = new Date(d);
-        endDate.setHours(startH, startM, 0, 0);
-        endDate.setSeconds(endDate.getSeconds() + workedSeconds + notWork);
-        lastOutStr = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
-      }
-
-      records.push({
-        date: toDateKey(d),
-        start: workedSeconds > 0 ? startStr : "-",
-        lastOut: workedSeconds > 0 ? lastOutStr : "-",
-        workedSeconds,
-        notWorkingSeconds: Math.floor(notWork),
-        overtimeSeconds: Math.floor(overtime),
-      });
-    }
-
-    return { id: `emp-${idx + 1}`, name, records };
-  });
-}
+type AttendanceDayResponse = {
+  date: string; // YYYY-MM-DD
+  timezone: string;
+  employees: {
+    id: string;
+    name: string;
+    start: string | null;
+    lastOut: string | null;
+    workedSeconds: number;
+    notWorkingSeconds: number;
+    overtimeSeconds: number;
+  }[];
+};
 
 // ---------------------------------------------------------------------------
 // Column defs per mode
@@ -183,7 +145,7 @@ const monthColumns: ColumnDef<MonthRow>[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Component wired to your DataTable
+// Component wired to your DataTable + real APIs
 
 export default function TimeCalcPage() {
   const today = new Date();
@@ -194,77 +156,58 @@ export default function TimeCalcPage() {
   );
   const [search, setSearch] = useState("");
 
-  const employeeNames = useMemo(
-    () => [
-      "Alice Fernando",
-      "Bimal Perera",
-      "Chen Li",
-      "Dulani Wijesinghe",
-      "Eshan Jayasuriya",
-      "Fatima Khan",
-      "Gihan Silva",
-    ],
-    []
+  const [monthData, setMonthData] = useState<AttendanceMonthResponse | null>(
+    null
   );
+  const [dayData, setDayData] = useState<AttendanceDayResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const dataset = useMemo(() => {
-    const [y, m] = selectedMonth.split("-").map((n) => parseInt(n, 10));
-    return genMockForMonth(y, m - 1, employeeNames);
-  }, [employeeNames, selectedMonth]);
+  // Fetchers ---------------------------------------------------------------
+  useEffect(() => {
+    let cancel = false;
+    const fetchMonth = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.get<AttendanceMonthResponse>(
+          `/attendance/records`,
+          { params: { month: selectedMonth, tz: "Asia/Colombo" } }
+        );
+        if (!cancel) setMonthData(res.data);
+      } catch (e: any) {
+        if (!cancel) setError(e?.message || "Failed to load month data");
+      } finally {
+        if (!cancel) setLoading(false);
+      }
+    };
+    if (mode === "month") fetchMonth();
+    return () => {
+      cancel = true;
+    };
+  }, [mode, selectedMonth]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return dataset;
-    return dataset.filter((e) => e.name.toLowerCase().includes(q));
-  }, [dataset, search]);
-
-  const dayRows = useMemo<DayRow[]>(() => {
-    if (mode !== "day") return [];
-    return filtered.map((e) => {
-      const rec = e.records.find((r) => r.date === selectedDate);
-      const r =
-        rec ||
-        ({
-          start: "-",
-          lastOut: "-",
-          workedSeconds: 0,
-          notWorkingSeconds: 0,
-          overtimeSeconds: 0,
-        } as DayRecord);
-      return {
-        employee: e.name,
-        start: r.start,
-        lastOut: r.lastOut,
-        workedSeconds: r.workedSeconds,
-        notWorkingSeconds: r.notWorkingSeconds,
-        overtimeSeconds: r.overtimeSeconds,
-      };
-    });
-  }, [filtered, mode, selectedDate]);
-
-  const monthRows = useMemo<MonthRow[]>(() => {
-    if (mode !== "month") return [];
-    const [y, m] = selectedMonth.split("-").map((n) => parseInt(n, 10));
-    return filtered.map((e) => {
-      const sums = [0, 0, 0, 0, 0, 0, 0]; // Sun..Sat
-      e.records.forEach((r) => {
-        if (!r.date.startsWith(`${y}-${pad(m)}`)) return;
-        const d = new Date(r.date + "T00:00:00");
-        const dow = d.getDay();
-        sums[dow] += r.workedSeconds;
-      });
-      return {
-        employee: e.name,
-        mon: sums[1],
-        tue: sums[2],
-        wed: sums[3],
-        thu: sums[4],
-        fri: sums[5],
-        sat: sums[6],
-        sun: sums[0],
-      };
-    });
-  }, [filtered, mode, selectedMonth]);
+  useEffect(() => {
+    let cancel = false;
+    const fetchDay = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.get<AttendanceDayResponse>(`/attendance/day`, {
+          params: { date: selectedDate, tz: "Asia/Colombo" },
+        });
+        if (!cancel) setDayData(res.data);
+      } catch (e: any) {
+        if (!cancel) setError(e?.message || "Failed to load day data");
+      } finally {
+        if (!cancel) setLoading(false);
+      }
+    };
+    if (mode === "day") fetchDay();
+    return () => {
+      cancel = true;
+    };
+  }, [mode, selectedDate]);
 
   // Keep pickers in sync when user changes day to a different month
   useEffect(() => {
@@ -274,6 +217,49 @@ export default function TimeCalcPage() {
     if (monthStr !== selectedMonth) setSelectedMonth(monthStr);
   }, [mode, selectedDate]);
 
+  // Derived rows -----------------------------------------------------------
+  const dayRows = useMemo<DayRow[]>(() => {
+    if (mode !== "day" || !dayData) return [];
+    const rows = dayData.employees.map((e) => ({
+      employee: e.name,
+      start: e.start,
+      lastOut: e.lastOut,
+      workedSeconds: e.workedSeconds,
+      notWorkingSeconds: e.notWorkingSeconds,
+      overtimeSeconds: e.overtimeSeconds,
+    }));
+    const q = search.trim().toLowerCase();
+    return q ? rows.filter((r) => r.employee.toLowerCase().includes(q)) : rows;
+  }, [mode, dayData, search]);
+
+  const monthRows = useMemo<MonthRow[]>(() => {
+    if (mode !== "month" || !monthData) return [];
+    const [y, m] = selectedMonth.split("-").map((n) => parseInt(n, 10));
+
+    const rows = monthData.employees.map((emp) => {
+      const sums = [0, 0, 0, 0, 0, 0, 0]; // Sun..Sat
+      emp.records.forEach((r) => {
+        if (!r.date.startsWith(`${y}-${pad(m)}`)) return; // safety
+        const d = new Date(r.date + "T00:00:00");
+        const dow = d.getDay();
+        sums[dow] += r.workedSeconds;
+      });
+      return {
+        employee: emp.name,
+        mon: sums[1],
+        tue: sums[2],
+        wed: sums[3],
+        thu: sums[4],
+        fri: sums[5],
+        sat: sums[6],
+        sun: sums[0],
+      } as MonthRow;
+    });
+
+    const q = search.trim().toLowerCase();
+    return q ? rows.filter((r) => r.employee.toLowerCase().includes(q)) : rows;
+  }, [mode, monthData, selectedMonth, search]);
+
   return (
     <div className="space-y-6">
       <PageHeader>
@@ -281,7 +267,7 @@ export default function TimeCalcPage() {
           <div>
             <PageHeaderTitle value="Timing" />
             <p className="text-xs text-gray-500">
-              Mocked data · switch Day/Month to change table headers.
+              Live data · switch Day/Month to change table headers.
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
@@ -345,10 +331,14 @@ export default function TimeCalcPage() {
       </PageHeader>
 
       <div className="rounded-lg border p-4">
-        {mode === "day" ? (
-          <DataTable columns={dayColumns} data={dayRows} />
+        {loading ? (
+          <div className="p-6 text-sm text-gray-500">Loading…</div>
+        ) : error ? (
+          <div className="p-6 text-sm text-red-600">{error}</div>
+        ) : mode === "day" ? (
+          <DataTable2 columns={dayColumns} data={dayRows} />
         ) : (
-          <DataTable columns={monthColumns} data={monthRows} />
+          <DataTable2 columns={monthColumns} data={monthRows} />
         )}
       </div>
     </div>
