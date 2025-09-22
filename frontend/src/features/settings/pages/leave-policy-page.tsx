@@ -59,7 +59,7 @@ function LeavePolicyPage() {
   const onSubmit = async (values: LeavePolicyValueForm) => {
     form.clearErrors("root.serverError");
     try {
-      const res = await api.post("/device/credentials", values);
+      const res = await api.patch("/leave/policy", values);
       console.log("Submitted values:", res);
     } catch (error) {
       form.setError("root.serverError", {
@@ -123,7 +123,7 @@ function LeavePolicyPage() {
                   <FormItem>
                     <FormLabel>Default Balance</FormLabel>
                     <FormControl>
-                      <Input placeholder="username" type="text" {...field} />
+                      <Input placeholder="balance" type="text" {...field} />
                     </FormControl>
                     <FormMessage className="text-xs" />
                   </FormItem>

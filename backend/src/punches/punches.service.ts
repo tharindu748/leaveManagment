@@ -138,4 +138,16 @@ export class PunchesService {
       throw new Error('Failed to fetch punches');
     }
   }
+
+  async detelePunch(id: number) {
+    try {
+      const punche = await this.prisma.punch.delete({
+        where: { id },
+      });
+      return punche;
+    } catch (error) {
+      console.log(error);
+      throw new NotFoundException('Punch not found');
+    }
+  }
 }
