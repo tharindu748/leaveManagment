@@ -18,7 +18,6 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class DeviceService implements OnModuleDestroy {
   private pollingInterval: NodeJS.Timeout | null = null;
-
   constructor(
     private usersService: UsersService,
     private syncHistoryService: SyncHistoryService,
@@ -27,21 +26,17 @@ export class DeviceService implements OnModuleDestroy {
     private prisma: DatabaseService,
     private deviceConfig: DeviceConfigService,
   ) {}
-
   onModuleDestroy() {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
   }
-
   // Persist credentials once
   async setCredentials(creds: DeviceCredentialsDto) {
     await this.deviceConfig.save(creds);
     return { status: 'ok' };
   }
-
   private async getClient() {
     return this.deviceConfig.getClient();
   }
-
   private async withAuthRetry<T>(
     fn: () => Promise<T>,
     maxRetries = 3,
@@ -61,7 +56,6 @@ export class DeviceService implements OnModuleDestroy {
     }
     throw new Error(`withAuthRetry: failed after ${maxRetries} retries`);
   }
-
   async fetchUsersFromDevice() {
     return this.withAuthRetry(async () => {
       const { ip } = await this.deviceConfig.getOrThrow();
@@ -86,7 +80,6 @@ export class DeviceService implements OnModuleDestroy {
       return res.json();
     });
   }
-
   // Same contract, but now fully DB-config backed and error-safe
   async syncUsers() {
     let usersData: any;
@@ -102,7 +95,6 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
-
     if (!usersData?.UserInfoSearch) {
       const status = 'Invalid data received';
       await this.syncHistoryService.addRecord({
@@ -113,7 +105,6 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
-
     const userList = usersData.UserInfoSearch.UserInfo ?? [];
     const totalMatches = usersData.UserInfoSearch.totalMatches ?? 0;
     if (!Array.isArray(userList) || userList.length === 0) {
@@ -126,7 +117,6 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
-
     let newCount = 0,
       updatedCount = 0;
     for (const user of userList) {
@@ -138,11 +128,9 @@ export class DeviceService implements OnModuleDestroy {
       const validInfo = user.Valid || {};
       const validFrom = validInfo.beginTime || undefined;
       const validTo = validInfo.endTime || undefined;
-
       const existing = await this.prisma.user.findUnique({
         where: { employeeId: empId },
       });
-
       await this.usersService.upsertRegUser({
         employeeId: empId,
         name,
@@ -153,7 +141,6 @@ export class DeviceService implements OnModuleDestroy {
       if (existing) updatedCount++;
       else newCount++;
     }
-
     const status = 'Success';
     await this.syncHistoryService.addRecord({
       totalUsers: totalMatches,
@@ -161,7 +148,6 @@ export class DeviceService implements OnModuleDestroy {
       updatedUsers: updatedCount,
       status,
     });
-
     return {
       total: totalMatches,
       new: newCount,
@@ -169,13 +155,11 @@ export class DeviceService implements OnModuleDestroy {
       status,
     };
   }
-
   startPolling() {
     if (this.pollingInterval) return { status: 'already running' };
     this.pollingInterval = setInterval(() => this.pollEvents(), 5000);
     return { status: 'started' };
   }
-
   stopPolling() {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
@@ -183,10 +167,9 @@ export class DeviceService implements OnModuleDestroy {
     }
     return { status: 'stopped' };
   }
-
   private async pollEvents() {
     // Read config + lastEventTime from DB
-    let creds;
+    let creds: any;
     try {
       creds = await this.deviceConfig.getOrThrow();
     } catch {
@@ -195,7 +178,6 @@ export class DeviceService implements OnModuleDestroy {
     }
     const client = await this.getClient();
     const url = `http://${creds.ip}/ISAPI/AccessControl/AcsEvent?format=json`;
-
     const cond: any = {
       AcsEventCond: {
         searchID: 'poll1',
@@ -206,7 +188,19 @@ export class DeviceService implements OnModuleDestroy {
       },
     };
     const lastEventTime = await this.deviceConfig.getLastEventTime();
-    if (lastEventTime) cond.AcsEventCond.startTime = lastEventTime;
+    if (lastEventTime) {
+      cond.AcsEventCond.startTime = lastEventTime;
+      // Added: Extract timezone offset from lastEventTime and set endTime to current time in same format
+      const offset = lastEventTime.slice(19); // e.g., '+05:30' (assumes consistent format)
+      const now = new Date();
+      const year = now.getFullYear().toString();
+      const month = (now.getMonth() + 1).toString().padStart(2, '0');
+      const day = now.getDate().toString().padStart(2, '0');
+      const hour = now.getHours().toString().padStart(2, '0');
+      const min = now.getMinutes().toString().padStart(2, '0');
+      const sec = now.getSeconds().toString().padStart(2, '0');
+      cond.AcsEventCond.endTime = `${year}-${month}-${day}T${hour}:${min}:${sec}${offset}`;
+    }
 
     let data: any;
     try {
@@ -226,11 +220,9 @@ export class DeviceService implements OnModuleDestroy {
       console.error('Polling error:', e);
       return;
     }
-
     const acs = data?.AcsEvent ?? {};
     const statusStr = acs.responseStatusStrg ?? 'UNKNOWN';
     if (!['OK', 'MORE'].includes(statusStr) || !acs.InfoList) return;
-
     const events = acs.InfoList as any[];
     let newMaxTime = lastEventTime;
     const affected = new Set<string>();
@@ -238,28 +230,28 @@ export class DeviceService implements OnModuleDestroy {
     for (const ev of events) {
       const empId = ev.employeeNoString;
       if (!empId) continue;
-
       const raw = ev.time as string | undefined; // e.g. "2025-09-15T14:12:00+05:30"
       const normalized = raw ? raw.slice(0, 19).replace('T', ' ') : ''; // "YYYY-MM-DD HH:MM:SS"
       const eventTime = normalized ? new Date(normalized) : null;
+
       if (!eventTime || Number.isNaN(eventTime.getTime())) continue;
 
       const att = (ev.attendanceStatus as string | undefined) ?? 'Unknown';
+
       let direction: Direction | undefined = undefined;
 
       const a = att.toLowerCase();
+
       if (a.includes('checkin') || a.includes('in')) direction = Direction.IN;
       else if (a.includes('checkout') || a.includes('out'))
         direction = Direction.OUT;
       // else: leave undefined → PunchesService will auto-infer from history
-
       const row = await this.punchesService.insertPunch({
         employeeId: empId,
         eventTime: normalized,
         direction, // may be undefined → auto-infer
         source: 'device',
       } as any);
-
       if (row) {
         affected.add(empId);
       }
@@ -269,7 +261,6 @@ export class DeviceService implements OnModuleDestroy {
     if (newMaxTime && newMaxTime !== lastEventTime) {
       await this.deviceConfig.setLastEventTime(newMaxTime);
     }
-
     // Recalculate attendance for the affected employees for *today* (same as Python worker).
     const workDate = new Date().toISOString().slice(0, 10);
     for (const empId of affected) {
