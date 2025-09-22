@@ -231,19 +231,25 @@ export class DeviceService implements OnModuleDestroy {
     const acs = data?.AcsEvent ?? {};
     const statusStr = acs.responseStatusStrg ?? 'UNKNOWN';
     if (!['OK', 'MORE'].includes(statusStr) || !acs.InfoList) return;
+
     const events = acs.InfoList as any[];
     let newMaxTime = lastEventTime;
     const affected = new Set<string>();
+
     for (const ev of events) {
       const empId = ev.employeeNoString;
       if (!empId) continue;
+
       const raw = ev.time as string | undefined; // e.g. "2025-09-15T14:12:00+05:30"
       if (!raw) continue;
       const eventTimeDate = new Date(raw);
+
       if (Number.isNaN(eventTimeDate.getTime())) continue;
+
       const att = (ev.attendanceStatus as string | undefined) ?? 'Unknown';
       let direction: Direction | undefined = undefined;
       const a = att.toLowerCase();
+
       if (a.includes('checkin') || a.includes('in')) direction = Direction.IN;
       else if (a.includes('checkout') || a.includes('out'))
         direction = Direction.OUT;
