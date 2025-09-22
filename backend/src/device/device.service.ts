@@ -1,4 +1,3 @@
-// src/device/device.service.ts
 import {
   BadGatewayException,
   Injectable,
@@ -18,6 +17,7 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class DeviceService implements OnModuleDestroy {
   private pollingInterval: NodeJS.Timeout | null = null;
+
   constructor(
     private usersService: UsersService,
     private syncHistoryService: SyncHistoryService,
@@ -26,17 +26,21 @@ export class DeviceService implements OnModuleDestroy {
     private prisma: DatabaseService,
     private deviceConfig: DeviceConfigService,
   ) {}
+
   onModuleDestroy() {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
   }
+
   // Persist credentials once
   async setCredentials(creds: DeviceCredentialsDto) {
     await this.deviceConfig.save(creds);
     return { status: 'ok' };
   }
+
   private async getClient() {
     return this.deviceConfig.getClient();
   }
+
   private async withAuthRetry<T>(
     fn: () => Promise<T>,
     maxRetries = 3,
@@ -56,6 +60,7 @@ export class DeviceService implements OnModuleDestroy {
     }
     throw new Error(`withAuthRetry: failed after ${maxRetries} retries`);
   }
+
   async fetchUsersFromDevice() {
     return this.withAuthRetry(async () => {
       const { ip } = await this.deviceConfig.getOrThrow();
@@ -80,6 +85,7 @@ export class DeviceService implements OnModuleDestroy {
       return res.json();
     });
   }
+
   // Same contract, but now fully DB-config backed and error-safe
   async syncUsers() {
     let usersData: any;
@@ -155,11 +161,13 @@ export class DeviceService implements OnModuleDestroy {
       status,
     };
   }
+
   startPolling() {
     if (this.pollingInterval) return { status: 'already running' };
     this.pollingInterval = setInterval(() => this.pollEvents(), 5000);
     return { status: 'started' };
   }
+
   stopPolling() {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
@@ -167,6 +175,7 @@ export class DeviceService implements OnModuleDestroy {
     }
     return { status: 'stopped' };
   }
+
   private async pollEvents() {
     // Read config + lastEventTime from DB
     let creds: any;
@@ -201,7 +210,6 @@ export class DeviceService implements OnModuleDestroy {
       const sec = now.getSeconds().toString().padStart(2, '0');
       cond.AcsEventCond.endTime = `${year}-${month}-${day}T${hour}:${min}:${sec}${offset}`;
     }
-
     let data: any;
     try {
       const res = await client.fetch(url, {
@@ -226,29 +234,23 @@ export class DeviceService implements OnModuleDestroy {
     const events = acs.InfoList as any[];
     let newMaxTime = lastEventTime;
     const affected = new Set<string>();
-
     for (const ev of events) {
       const empId = ev.employeeNoString;
       if (!empId) continue;
       const raw = ev.time as string | undefined; // e.g. "2025-09-15T14:12:00+05:30"
-      const normalized = raw ? raw.slice(0, 19).replace('T', ' ') : ''; // "YYYY-MM-DD HH:MM:SS"
-      const eventTime = normalized ? new Date(normalized) : null;
-
-      if (!eventTime || Number.isNaN(eventTime.getTime())) continue;
-
+      if (!raw) continue;
+      const eventTimeDate = new Date(raw);
+      if (Number.isNaN(eventTimeDate.getTime())) continue;
       const att = (ev.attendanceStatus as string | undefined) ?? 'Unknown';
-
       let direction: Direction | undefined = undefined;
-
       const a = att.toLowerCase();
-
       if (a.includes('checkin') || a.includes('in')) direction = Direction.IN;
       else if (a.includes('checkout') || a.includes('out'))
         direction = Direction.OUT;
       // else: leave undefined → PunchesService will auto-infer from history
       const row = await this.punchesService.insertPunch({
         employeeId: empId,
-        eventTime: normalized,
+        eventTime: raw, // Use full raw ISO with offset for correct TZ parsing
         direction, // may be undefined → auto-infer
         source: 'device',
       } as any);
@@ -257,12 +259,13 @@ export class DeviceService implements OnModuleDestroy {
       }
       if (raw && (!newMaxTime || raw > newMaxTime)) newMaxTime = raw;
     }
-
     if (newMaxTime && newMaxTime !== lastEventTime) {
       await this.deviceConfig.setLastEventTime(newMaxTime);
     }
     // Recalculate attendance for the affected employees for *today* (same as Python worker).
-    const workDate = new Date().toISOString().slice(0, 10);
+    // Use UTC date for consistency
+    const nowUtc = new Date();
+    const workDate = nowUtc.toISOString().slice(0, 10);
     for (const empId of affected) {
       await this.attendanceService.calculateAttendance({
         employeeId: empId,

@@ -1,4 +1,3 @@
-// src/punches/punches.service.ts
 import {
   BadRequestException,
   Injectable,
@@ -30,7 +29,7 @@ export class PunchesService {
   }
 
   async insertPunch(dto: CreatePunchDto) {
-    const eventTime = new Date(dto.eventTime);
+    const eventTime = new Date(dto.eventTime); // Parses full ISO with offset if provided
     let direction = dto.direction as Direction | undefined;
 
     if (dto.source === 'manual') {
@@ -75,11 +74,12 @@ export class PunchesService {
     eventTime: Date,
   ): Promise<Direction> {
     // Use the *corrected* timeline (mirrors Python’s _auto_direction_for_device).
-    const dayStart = new Date(
-      eventTime.getFullYear(),
-      eventTime.getMonth(),
-      eventTime.getDate(),
-    );
+    // To handle day start consistently in UTC (avoid local TZ issues)
+    const utcYear = eventTime.getUTCFullYear();
+    const utcMonth = eventTime.getUTCMonth();
+    const utcDate = eventTime.getUTCDate();
+    const dayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate));
+
     const last = await this.prisma.punch.findFirst({
       where: {
         employeeId,
@@ -94,28 +94,26 @@ export class PunchesService {
 
   private buildDateFilter(eventTime?: EventTime) {
     if (!eventTime) return undefined;
-
     if (eventTime instanceof Date) {
-      const start = new Date(eventTime);
-      start.setHours(0, 0, 0, 0);
-
-      const end = new Date(eventTime);
-      end.setHours(23, 59, 59, 999);
-
+      // Use UTC day boundaries for consistency
+      const utcYear = eventTime.getUTCFullYear();
+      const utcMonth = eventTime.getUTCMonth();
+      const utcDate = eventTime.getUTCDate();
+      const start = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0, 0));
+      const end = new Date(
+        Date.UTC(utcYear, utcMonth, utcDate, 23, 59, 59, 999),
+      );
       return { gte: start, lte: end };
     }
-
     if (eventTime.from && eventTime.to) {
       return { gte: new Date(eventTime.from), lte: new Date(eventTime.to) };
     }
-
     return undefined;
   }
 
   async getPunches({ employeeId, name, eventTime }: GetPunchesParams) {
     try {
       const dateFilter = this.buildDateFilter(eventTime);
-
       const where: Prisma.PunchWhereInput = {
         ...(employeeId && { employeeId }),
         ...(name && {
@@ -125,7 +123,6 @@ export class PunchesService {
         }),
         ...(dateFilter && { correctEventTime: dateFilter }),
       };
-
       return await this.prisma.punch.findMany({
         where,
         orderBy: [

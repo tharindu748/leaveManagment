@@ -96,23 +96,21 @@ model SyncHistory {
 }
 
 model Punch {
-  id                 Int        @id @default(autoincrement())
-  employeeId         String     @map("employee_id")
-  eventTime          DateTime   @map("event_time")
-  correctEventTime   DateTime?  @map("correct_event_time") // NEW (nullable for backfill)
-  direction          Direction
-  source             Source
-  note               String?
-  createdBy          String?    @map("created_by")
-  createdAt          DateTime   @default(now()) @map("created_at")
-  directionCorrected Boolean    @default(false) @map("direction_corrected")
-  originalDirection  Direction? @map("original_direction")
-  correctedBy        String?    @map("corrected_by")
-  correctionNote     String?    @map("correction_note")
-  correctedAt        DateTime?  @map("corrected_at")
-
+  id Int @id @default(autoincrement())
+  employeeId String @map("employee_id")
+  eventTime DateTime @map("event_time") @db.Timestamptz(0)
+  correctEventTime DateTime? @map("correct_event_time") @db.Timestamptz(0) // NEW (nullable for backfill)
+  direction Direction
+  source Source
+  note String?
+  createdBy String? @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(0)
+  directionCorrected Boolean @default(false) @map("direction_corrected")
+  originalDirection Direction? @map("original_direction")
+  correctedBy String? @map("corrected_by")
+  correctionNote String? @map("correction_note")
+  correctedAt DateTime? @map("corrected_at") @db.Timestamptz(0)
   user User @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-
   @@unique([employeeId, eventTime, direction, source])
   @@index([employeeId, eventTime])
   @@index([employeeId, correctEventTime])
