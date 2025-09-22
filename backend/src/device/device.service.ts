@@ -1,3 +1,4 @@
+// src/device/device.service.ts
 import {
   BadGatewayException,
   Injectable,
@@ -12,7 +13,6 @@ import { DatabaseService } from 'src/database/database.service';
 import { UsersService } from 'src/users/users.service';
 import { Direction } from '@prisma/client';
 import { DeviceConfigService } from './device-config.service';
-import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class DeviceService implements OnModuleDestroy {
@@ -31,7 +31,6 @@ export class DeviceService implements OnModuleDestroy {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
   }
 
-  // Persist credentials once
   async setCredentials(creds: DeviceCredentialsDto) {
     await this.deviceConfig.save(creds);
     return { status: 'ok' };
@@ -41,18 +40,37 @@ export class DeviceService implements OnModuleDestroy {
     return this.deviceConfig.getClient();
   }
 
+  private async handleAuthError(error: any) {
+    if (error.status === 401 || error.statusCode === 401) {
+      await this.deviceConfig.markAuthFailure();
+      console.warn(
+        'Device authentication failed - marking failure and blocking future attempts',
+      );
+    }
+    throw error;
+  }
+
   private async withAuthRetry<T>(
     fn: () => Promise<T>,
     maxRetries = 3,
   ): Promise<T> {
+    // Check if auth is currently blocked
+    const authStatus = await this.deviceConfig.isAuthBlocked();
+    if (authStatus.blocked) {
+      throw new BadGatewayException(authStatus.reason);
+    }
+
     for (let i = 0; i < maxRetries; i++) {
       try {
-        return await fn();
+        const result = await fn();
+        // If successful, clear any previous auth failures
+        await this.deviceConfig.clearAuthFailure();
+        return result;
       } catch (error: any) {
-        if (
-          (error.status === 401 || error.statusCode === 401) &&
-          i < maxRetries - 1
-        ) {
+        if (error.status === 401 || error.statusCode === 401) {
+          if (i === maxRetries - 1) {
+            await this.handleAuthError(error);
+          }
           continue;
         }
         throw error;
@@ -86,8 +104,20 @@ export class DeviceService implements OnModuleDestroy {
     });
   }
 
-  // Same contract, but now fully DB-config backed and error-safe
   async syncUsers() {
+    // Check auth status before attempting sync
+    const authStatus = await this.deviceConfig.isAuthBlocked();
+    if (authStatus.blocked) {
+      const status = `Sync blocked: ${authStatus.reason}`;
+      await this.syncHistoryService.addRecord({
+        totalUsers: 0,
+        newUsers: 0,
+        updatedUsers: 0,
+        status,
+      });
+      throw new BadGatewayException(status);
+    }
+
     let usersData: any;
     try {
       usersData = await this.fetchUsersFromDevice();
@@ -101,6 +131,7 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
+
     if (!usersData?.UserInfoSearch) {
       const status = 'Invalid data received';
       await this.syncHistoryService.addRecord({
@@ -111,8 +142,10 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
+
     const userList = usersData.UserInfoSearch.UserInfo ?? [];
     const totalMatches = usersData.UserInfoSearch.totalMatches ?? 0;
+
     if (!Array.isArray(userList) || userList.length === 0) {
       const status = 'No users found';
       await this.syncHistoryService.addRecord({
@@ -123,6 +156,7 @@ export class DeviceService implements OnModuleDestroy {
       });
       throw new BadGatewayException(status);
     }
+
     let newCount = 0,
       updatedCount = 0;
     for (const user of userList) {
@@ -147,6 +181,7 @@ export class DeviceService implements OnModuleDestroy {
       if (existing) updatedCount++;
       else newCount++;
     }
+
     const status = 'Success';
     await this.syncHistoryService.addRecord({
       totalUsers: totalMatches,
@@ -164,7 +199,12 @@ export class DeviceService implements OnModuleDestroy {
 
   startPolling() {
     if (this.pollingInterval) return { status: 'already running' };
-    this.pollingInterval = setInterval(() => this.pollEvents(), 5000);
+    this.pollingInterval = setInterval(() => {
+      this.pollEvents().catch((err) => {
+        console.error('pollEvents unhandled error:', err);
+        // never let this bubble and kill the process
+      });
+    }, 5000);
     return { status: 'started' };
   }
 
@@ -176,15 +216,31 @@ export class DeviceService implements OnModuleDestroy {
     return { status: 'stopped' };
   }
 
+  async getAuthStatus() {
+    const authStatus = await this.deviceConfig.isAuthBlocked();
+    return authStatus;
+  }
+
+  async clearAuthFailures() {
+    await this.deviceConfig.clearAuthFailure();
+    return { status: 'Auth failures cleared' };
+  }
+
   private async pollEvents() {
-    // Read config + lastEventTime from DB
+    // Check auth status before polling
+    const authStatus = await this.deviceConfig.isAuthBlocked();
+    if (authStatus.blocked) {
+      console.log(`Polling skipped: ${authStatus.reason}`);
+      return;
+    }
+
     let creds: any;
     try {
       creds = await this.deviceConfig.getOrThrow();
     } catch {
-      // not configured yet
       return;
     }
+
     const client = await this.getClient();
     const url = `http://${creds.ip}/ISAPI/AccessControl/AcsEvent?format=json`;
     const cond: any = {
@@ -196,11 +252,11 @@ export class DeviceService implements OnModuleDestroy {
         minor: 0,
       },
     };
+
     const lastEventTime = await this.deviceConfig.getLastEventTime();
     if (lastEventTime) {
       cond.AcsEventCond.startTime = lastEventTime;
-      // Added: Extract timezone offset from lastEventTime and set endTime to current time in same format
-      const offset = lastEventTime.slice(19); // e.g., '+05:30' (assumes consistent format)
+      const offset = lastEventTime.slice(19);
       const now = new Date();
       const year = now.getFullYear().toString();
       const month = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -210,6 +266,7 @@ export class DeviceService implements OnModuleDestroy {
       const sec = now.getSeconds().toString().padStart(2, '0');
       cond.AcsEventCond.endTime = `${year}-${month}-${day}T${hour}:${min}:${sec}${offset}`;
     }
+
     let data: any;
     try {
       const res = await client.fetch(url, {
@@ -217,17 +274,41 @@ export class DeviceService implements OnModuleDestroy {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cond),
       });
-      if (res.status === 401)
-        throw new UnauthorizedException('Device auth failed');
+
+      if (res.status === 401) {
+        // await this.handleAuthError(
+        //   new UnauthorizedException('Device auth failed'),
+        // );
+        // return;
+        await this.deviceConfig.markAuthFailure();
+        console.warn(
+          'Device authentication failed - marking failure and blocking future attempts',
+        );
+        return;
+      }
+
       if (!res.ok) {
         console.error('Polling error: Device responded', res.status);
         return;
       }
+
       data = await res.json();
-    } catch (e) {
-      console.error('Polling error:', e);
+      // Clear auth failures on successful request
+      await this.deviceConfig.clearAuthFailure();
+    } catch (e: any) {
+      if (e.status === 401 || e.statusCode === 401) {
+        // await this.handleAuthError(e);
+        await this.deviceConfig.markAuthFailure();
+        console.warn(
+          'Device authentication failed - marking failure and blocking future attempts',
+        );
+        return;
+      } else {
+        console.error('Polling error:', e);
+      }
       return;
     }
+
     const acs = data?.AcsEvent ?? {};
     const statusStr = acs.responseStatusStrg ?? 'UNKNOWN';
     if (!['OK', 'MORE'].includes(statusStr) || !acs.InfoList) return;
@@ -240,7 +321,7 @@ export class DeviceService implements OnModuleDestroy {
       const empId = ev.employeeNoString;
       if (!empId) continue;
 
-      const raw = ev.time as string | undefined; // e.g. "2025-09-15T14:12:00+05:30"
+      const raw = ev.time as string | undefined;
       if (!raw) continue;
       const eventTimeDate = new Date(raw);
 
@@ -253,23 +334,24 @@ export class DeviceService implements OnModuleDestroy {
       if (a.includes('checkin') || a.includes('in')) direction = Direction.IN;
       else if (a.includes('checkout') || a.includes('out'))
         direction = Direction.OUT;
-      // else: leave undefined → PunchesService will auto-infer from history
+
       const row = await this.punchesService.insertPunch({
         employeeId: empId,
-        eventTime: raw, // Use full raw ISO with offset for correct TZ parsing
-        direction, // may be undefined → auto-infer
+        eventTime: raw,
+        direction,
         source: 'device',
       } as any);
+
       if (row) {
         affected.add(empId);
       }
       if (raw && (!newMaxTime || raw > newMaxTime)) newMaxTime = raw;
     }
+
     if (newMaxTime && newMaxTime !== lastEventTime) {
       await this.deviceConfig.setLastEventTime(newMaxTime);
     }
-    // Recalculate attendance for the affected employees for *today* (same as Python worker).
-    // Use UTC date for consistency
+
     const nowUtc = new Date();
     const workDate = nowUtc.toISOString().slice(0, 10);
     for (const empId of affected) {

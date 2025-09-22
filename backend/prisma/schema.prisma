@@ -138,14 +138,17 @@ model AttendanceDay {
 }
 
 model DeviceConfig {
-  id             Int      @id @default(1)          // single row
-  ip             String
-  username       String
-  passwordEnc    String   @map("password_enc")     // encrypted at rest
-  lastEventTime  String?  @map("last_event_time")  // e.g. "2025-09-15T14:20:01+05:30"
-  updatedAt      DateTime @updatedAt
+  id               Int       @id
+  ip               String
+  username         String
+  passwordEnc      String
+  lastEventTime    String?
+  authFailedAt     DateTime? // When auth last failed
+  authFailureCount Int       @default(0) // Number of consecutive failures
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  @@map("device_config")
+  @@map("device_configs")
 }
 
 model AttendanceConfig {

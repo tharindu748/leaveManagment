@@ -40,6 +40,7 @@ import {
   subDays,
   startOfWeek,
   endOfWeek,
+  set,
 } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import AddManualPunchDialog from "../components/add-manual-punch-dialog";
@@ -86,6 +87,7 @@ function PunchesPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const [data, setData] = useState<Punches[]>([]);
   const [open, setOpen] = useState(false);
+  const [deviceBlock, setDeviceBlock] = useState(false);
   const [isPolling, setIsPolling] = useState<boolean>(false);
   const [addPunchToggle, setAddPunchToggle] = useState(false);
   const isMobile = useIsMobile();
@@ -137,6 +139,22 @@ function PunchesPage() {
       console.log(error);
     }
   };
+
+  const checkDeviceConnection = async () => {
+    try {
+      const res = await api.get("/device/auth-status");
+      setDeviceBlock(res.data.blocked);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    const time = setInterval(() => {
+      checkDeviceConnection();
+    }, 5000);
+    return () => clearInterval(time);
+  }, []);
 
   const startPolling = async () => {
     try {
@@ -220,7 +238,19 @@ function PunchesPage() {
       <div className="rounded-lg border p-6">
         <div className="rounded-lg border p-6 mt-3">
           <div className="flex items-center justify-between space-x-4 mt-3">
-            <div>
+            <div className="flex gap-2">
+              <h2 className="font-semibold">
+                Device Connection:{" "}
+                <span
+                  className={`${
+                    deviceBlock
+                      ? "bg-red-200 border-red-600 text-red-600"
+                      : "bg-green-200 border-green-600 text-green-600 "
+                  }   border font-light pt-1 pb-2 px-3 rounded-sm`}
+                >
+                  {deviceBlock ? "Disconnected " : "Connected"}{" "}
+                </span>
+              </h2>
               <h2 className="font-semibold">
                 Status:{" "}
                 <span

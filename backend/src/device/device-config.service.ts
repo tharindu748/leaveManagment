@@ -45,8 +45,21 @@ export class DeviceConfigService {
     const passwordEnc = this.encrypt(creds.password);
     await this.prisma.deviceConfig.upsert({
       where: { id: 1 },
-      update: { ip: creds.ip, username: creds.username, passwordEnc },
-      create: { id: 1, ip: creds.ip, username: creds.username, passwordEnc },
+      update: {
+        ip: creds.ip,
+        username: creds.username,
+        passwordEnc,
+        authFailedAt: null, // Reset auth failure status when saving new creds
+        authFailureCount: 0,
+      },
+      create: {
+        id: 1,
+        ip: creds.ip,
+        username: creds.username,
+        passwordEnc,
+        authFailedAt: null,
+        authFailureCount: 0,
+      },
     });
   }
 
@@ -59,7 +72,6 @@ export class DeviceConfigService {
       username: row.username,
       password: this.decrypt(row.passwordEnc),
     };
-    // lastEventTime is stored/updated separately
   }
 
   async getLastEventTime(): Promise<string | null> {
@@ -72,6 +84,66 @@ export class DeviceConfigService {
       where: { id: 1 },
       data: { lastEventTime: ts },
     });
+  }
+
+  // New methods for auth failure tracking
+  async markAuthFailure() {
+    await this.prisma.deviceConfig.update({
+      where: { id: 1 },
+      data: {
+        authFailedAt: new Date(),
+        authFailureCount: { increment: 1 },
+      },
+    });
+  }
+
+  async clearAuthFailure() {
+    await this.prisma.deviceConfig.update({
+      where: { id: 1 },
+      data: {
+        authFailedAt: null,
+        authFailureCount: 0,
+      },
+    });
+  }
+
+  async isAuthBlocked(): Promise<{
+    blocked: boolean;
+    reason?: string;
+    waitTime?: number;
+  }> {
+    const row = await this.prisma.deviceConfig.findUnique({ where: { id: 1 } });
+    if (!row?.authFailedAt) return { blocked: false };
+
+    const failedAt = new Date(row.authFailedAt);
+    const now = new Date();
+    const timeSinceFailure = now.getTime() - failedAt.getTime();
+    const failureCount = row.authFailureCount || 0;
+
+    // Progressive backoff: 1 min, 5 min, 15 min, 30 min, then 60 min
+    let waitTimeMs: number;
+    if (failureCount === 1)
+      waitTimeMs = 1 * 60 * 1000; // 1 minute
+    else if (failureCount === 2)
+      waitTimeMs = 5 * 60 * 1000; // 5 minutes
+    else if (failureCount === 3)
+      waitTimeMs = 15 * 60 * 1000; // 15 minutes
+    else if (failureCount === 4)
+      waitTimeMs = 30 * 60 * 1000; // 30 minutes
+    else waitTimeMs = 60 * 60 * 1000; // 1 hour for 5+ failures
+
+    if (timeSinceFailure < waitTimeMs) {
+      const remainingWaitTime = Math.ceil(
+        (waitTimeMs - timeSinceFailure) / 1000,
+      );
+      return {
+        blocked: true,
+        reason: `Device authentication blocked due to ${failureCount} consecutive failures. Wait ${Math.ceil(remainingWaitTime / 60)} minutes.`,
+        waitTime: remainingWaitTime,
+      };
+    }
+
+    return { blocked: false };
   }
 
   async getClient(): Promise<DigestFetch> {

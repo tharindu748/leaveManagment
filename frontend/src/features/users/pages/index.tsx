@@ -23,6 +23,7 @@ function UsersPage1() {
   const [data, setData] = useState<Employee[]>([]);
   const [editUserToggle, setEditUserToggle] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [deviceBlock, setDeviceBlock] = useState(false);
 
   const fetchUsers = async () => {
     try {
@@ -32,6 +33,22 @@ function UsersPage1() {
       console.error(error);
     }
   };
+
+  const checkDeviceConnection = async () => {
+    try {
+      const res = await api.get("/device/auth-status");
+      setDeviceBlock(res.data.blocked);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    const time = setInterval(() => {
+      checkDeviceConnection();
+    }, 5000);
+    return () => clearInterval(time);
+  }, []);
 
   const syncUsers = async () => {
     try {
@@ -61,10 +78,22 @@ function UsersPage1() {
       </PageHeader>
 
       <div className="rounded-lg border p-6">
-        <div className="flex items-end space-x-4 mt-3">
+        <div className="flex items-center space-x-4 mt-3">
           <Button onClick={syncUsers} type="button" className="bg-green-600">
             Sync Users
           </Button>
+          <h2 className="font-semibold">
+            Device Connection:{" "}
+            <span
+              className={`${
+                deviceBlock
+                  ? "bg-red-200 border-red-600 text-red-600"
+                  : "bg-green-200 border-green-600 text-green-600 "
+              }   border font-light pt-1 pb-2 px-3 rounded-sm`}
+            >
+              {deviceBlock ? "Disconnected " : "Connected"}{" "}
+            </span>
+          </h2>
         </div>
 
         <div className="rounded-lg border p-6 mt-3">

@@ -1,5 +1,5 @@
 // src/device/device.controller.ts
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Delete } from '@nestjs/common';
 import { DeviceService } from './device.service';
 import { DeviceCredentialsDto } from './dto/device.dto';
 
@@ -8,22 +8,33 @@ export class DeviceController {
   constructor(private readonly deviceService: DeviceService) {}
 
   @Post('credentials')
-  async setCredentials(@Body() dto: DeviceCredentialsDto) {
-    return this.deviceService.setCredentials(dto);
+  async setCredentials(@Body() creds: DeviceCredentialsDto) {
+    return this.deviceService.setCredentials(creds);
   }
 
   @Post('sync-users')
-  syncUsers() {
+  async syncUsers() {
     return this.deviceService.syncUsers();
   }
 
   @Post('start-polling')
-  startPolling() {
+  async startPolling() {
     return this.deviceService.startPolling();
   }
 
   @Post('stop-polling')
-  stopPolling() {
+  async stopPolling() {
     return this.deviceService.stopPolling();
+  }
+
+  // New endpoints for auth management
+  @Get('auth-status')
+  async getAuthStatus() {
+    return this.deviceService.getAuthStatus();
+  }
+
+  @Delete('auth-failures')
+  async clearAuthFailures() {
+    return this.deviceService.clearAuthFailures();
   }
 }
