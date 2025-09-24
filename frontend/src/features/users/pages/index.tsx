@@ -3,7 +3,7 @@ import PageHeaderTitle from "@/components/page-header/title";
 import PageHeader from "@/components/page-header/wrapper";
 import { Button } from "@/components/ui/button";
 import type { OutletContextType } from "@/layouts/main-layout";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react"; // Added useRef for consistency, though not strictly needed here
 import { useOutletContext } from "react-router";
 import api from "@/api/axios";
 import { columns, type Employee } from "../components/columns";
@@ -25,6 +25,14 @@ function UsersPage1() {
   const [editUserToggle, setEditUserToggle] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deviceBlock, setDeviceBlock] = useState(false);
+
+  // Add ref for deviceBlock (for future-proofing, though not used in conditions here)
+  const deviceBlockRef = useRef(deviceBlock);
+
+  // Update ref when state changes
+  useEffect(() => {
+    deviceBlockRef.current = deviceBlock;
+  }, [deviceBlock]);
 
   const fetchUsers = async () => {
     try {
@@ -48,12 +56,16 @@ function UsersPage1() {
   };
 
   useEffect(() => {
+    // Initial check
     checkDeviceConnection();
+
+    // Set up interval once on mount
     const time = setInterval(() => {
       checkDeviceConnection();
     }, 5000);
+
     return () => clearInterval(time);
-  });
+  }, []); // Added empty deps to run only on mount
 
   const syncUsers = async () => {
     try {

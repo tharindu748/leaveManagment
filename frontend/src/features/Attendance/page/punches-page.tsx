@@ -4,7 +4,7 @@ import { DataTable3 } from "@/components/data-table";
 import PageHeaderTitle from "@/components/page-header/title";
 import PageHeader from "@/components/page-header/wrapper";
 import type { OutletContextType } from "@/layouts/main-layout";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react"; // Added useRef
 import { useOutletContext } from "react-router";
 import { columns, type Punches } from "../components/Table/columns";
 import api from "@/api/axios";
@@ -93,6 +93,19 @@ function PunchesPage() {
   const isMobile = useIsMobile();
   const currentUserId = user?.id;
 
+  // Add refs for states used in async callbacks (to avoid stale closures)
+  const isPollingRef = useRef(isPolling);
+  const deviceBlockRef = useRef(deviceBlock);
+
+  // Update refs when states change
+  useEffect(() => {
+    isPollingRef.current = isPolling;
+  }, [isPolling]);
+
+  useEffect(() => {
+    deviceBlockRef.current = deviceBlock;
+  }, [deviceBlock]);
+
   const form = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
     defaultValues: {
@@ -135,6 +148,7 @@ function PunchesPage() {
     try {
       const res = await api.get(`/punches/latest?limit=10`);
       setData(res.data);
+      console.log(res.data);
     } catch (error) {
       console.log(error);
     }
@@ -150,14 +164,25 @@ function PunchesPage() {
   };
 
   useEffect(() => {
-    checkDeviceConnection();
-    if (isPolling && !deviceBlock) fetchPunches();
+    // Initial check + conditional fetch (chained to avoid race conditions)
+    checkDeviceConnection().then(() => {
+      // Initial fetch ignores isPolling (matches your original code)
+      if (!deviceBlockRef.current) {
+        fetchPunches();
+      }
+    });
+
+    // Set up interval once on mount (always runs check; conditional fetch)
     const time = setInterval(() => {
-      checkDeviceConnection();
-      if (isPolling && !deviceBlock) fetchPunches();
+      checkDeviceConnection().then(() => {
+        if (isPollingRef.current && !deviceBlockRef.current) {
+          fetchPunches();
+        }
+      });
     }, 5000);
+
     return () => clearInterval(time);
-  });
+  }, []); // Now safe with empty deps
 
   const startPolling = async () => {
     try {

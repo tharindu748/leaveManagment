@@ -1,3 +1,6 @@
+// src/device/device-config.service.ts (no changes needed here)
+// The existing DeviceConfigService is perfect as-is
+
 // src/device/device.service.ts
 import {
   BadGatewayException,
@@ -40,83 +43,57 @@ export class DeviceService implements OnModuleDestroy {
     return this.deviceConfig.getClient();
   }
 
-  private async handleAuthError(error: any) {
-    if (error.status === 401 || error.statusCode === 401) {
-      await this.deviceConfig.markAuthFailure();
-      console.warn(
-        'Device authentication failed - marking failure and blocking future attempts',
-      );
-    }
-    throw error;
-  }
-
-  private async withAuthRetry<T>(
-    fn: () => Promise<T>,
-    maxRetries = 3,
-  ): Promise<T> {
-    // Check if auth is currently blocked
+  private async checkAuthBlocked(): Promise<void> {
     const authStatus = await this.deviceConfig.isAuthBlocked();
     if (authStatus.blocked) {
-      throw new BadGatewayException(authStatus.reason);
+      throw new BadGatewayException(
+        authStatus.reason || 'Device authentication blocked',
+      );
     }
-
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        const result = await fn();
-        // If successful, clear any previous auth failures
-        await this.deviceConfig.clearAuthFailure();
-        return result;
-      } catch (error: any) {
-        if (error.status === 401 || error.statusCode === 401) {
-          if (i === maxRetries - 1) {
-            await this.handleAuthError(error);
-          }
-          continue;
-        }
-        throw error;
-      }
-    }
-    throw new Error(`withAuthRetry: failed after ${maxRetries} retries`);
   }
 
   async fetchUsersFromDevice() {
-    return this.withAuthRetry(async () => {
-      const { ip } = await this.deviceConfig.getOrThrow();
-      const client = await this.getClient();
-      const url = `http://${ip}/ISAPI/AccessControl/UserInfo/Search?format=json`;
-      const searchData = {
-        UserInfoSearchCond: {
-          searchID: '1',
-          searchResultPosition: 0,
-          maxResults: 2000,
-        },
-      };
-      const res = await client.fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(searchData),
-      });
-      if (res.status === 401)
-        throw new UnauthorizedException('Device auth failed');
-      if (!res.ok)
-        throw new BadGatewayException(`Device responded ${res.status}`);
-      return res.json();
+    // Check if auth is blocked before attempting
+    await this.checkAuthBlocked();
+
+    const { ip } = await this.deviceConfig.getOrThrow();
+    const client = await this.getClient();
+    const url = `http://${ip}/ISAPI/AccessControl/UserInfo/Search?format=json`;
+    const searchData = {
+      UserInfoSearchCond: {
+        searchID: '1',
+        searchResultPosition: 0,
+        maxResults: 2000,
+      },
+    };
+
+    const res = await client.fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(searchData),
     });
+
+    if (res.status === 401) {
+      await this.deviceConfig.markAuthFailure();
+      throw new UnauthorizedException('Device authentication failed');
+    }
+
+    if (!res.ok) {
+      // Mark as auth failure for connection errors too (wrong IP, device off, etc.)
+      await this.deviceConfig.markAuthFailure();
+      throw new BadGatewayException(
+        `Device responded with status ${res.status}`,
+      );
+    }
+
+    // Clear any previous auth failures on success
+    await this.deviceConfig.clearAuthFailure();
+    return res.json();
   }
 
   async syncUsers() {
     // Check auth status before attempting sync
-    const authStatus = await this.deviceConfig.isAuthBlocked();
-    if (authStatus.blocked) {
-      const status = `Sync blocked: ${authStatus.reason}`;
-      await this.syncHistoryService.addRecord({
-        totalUsers: 0,
-        newUsers: 0,
-        updatedUsers: 0,
-        status,
-      });
-      throw new BadGatewayException(status);
-    }
+    await this.checkAuthBlocked();
 
     let usersData: any;
     try {
@@ -133,7 +110,7 @@ export class DeviceService implements OnModuleDestroy {
     }
 
     if (!usersData?.UserInfoSearch) {
-      const status = 'Invalid data received';
+      const status = 'Invalid data received from device';
       await this.syncHistoryService.addRecord({
         totalUsers: 0,
         newUsers: 0,
@@ -147,7 +124,7 @@ export class DeviceService implements OnModuleDestroy {
     const totalMatches = usersData.UserInfoSearch.totalMatches ?? 0;
 
     if (!Array.isArray(userList) || userList.length === 0) {
-      const status = 'No users found';
+      const status = 'No users found on device';
       await this.syncHistoryService.addRecord({
         totalUsers: 0,
         newUsers: 0,
@@ -201,8 +178,7 @@ export class DeviceService implements OnModuleDestroy {
     if (this.pollingInterval) return { status: 'already running' };
     this.pollingInterval = setInterval(() => {
       this.pollEvents().catch((err) => {
-        console.error('pollEvents unhandled error:', err);
-        // never let this bubble and kill the process
+        console.error('pollEvents error:', err.message);
       });
     }, 5000);
     return { status: 'started' };
@@ -217,8 +193,7 @@ export class DeviceService implements OnModuleDestroy {
   }
 
   async getAuthStatus() {
-    const authStatus = await this.deviceConfig.isAuthBlocked();
-    return authStatus;
+    return await this.deviceConfig.isAuthBlocked();
   }
 
   async clearAuthFailures() {
@@ -230,7 +205,7 @@ export class DeviceService implements OnModuleDestroy {
     // Check auth status before polling
     const authStatus = await this.deviceConfig.isAuthBlocked();
     if (authStatus.blocked) {
-      console.log(`Polling skipped: ${authStatus.reason}`);
+      console.log(`Polling blocked: ${authStatus.reason}`);
       return;
     }
 
@@ -277,33 +252,25 @@ export class DeviceService implements OnModuleDestroy {
 
       if (res.status === 401) {
         await this.deviceConfig.markAuthFailure();
-        console.warn(
-          'Device authentication failed - marking failure and blocking future attempts',
-        );
+        console.warn('Device authentication failed - blocking future attempts');
         return;
       }
 
       if (!res.ok) {
-        console.error('Polling error: Device responded', res.status);
+        // Treat any non-200 response as auth failure (device off, wrong IP, etc.)
+        await this.deviceConfig.markAuthFailure();
+        console.warn(
+          `Device responded with ${res.status} - blocking future attempts`,
+        );
         return;
       }
 
       data = await res.json();
       await this.deviceConfig.clearAuthFailure();
     } catch (e: any) {
-      if (
-        e.status === 401 ||
-        e.statusCode === 401 ||
-        e.cause?.code === 'UND_ERR_CONNECT_TIMEOUT'
-      ) {
-        await this.deviceConfig.markAuthFailure();
-        console.warn(
-          'Device authentication failed - marking failure and blocking future attempts',
-        );
-        return;
-      } else {
-        console.error('Polling error:', e);
-      }
+      // Treat any connection error as auth failure
+      await this.deviceConfig.markAuthFailure();
+      console.warn('Device connection failed - blocking future attempts');
       return;
     }
 
