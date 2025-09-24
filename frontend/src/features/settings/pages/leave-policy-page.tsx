@@ -52,22 +52,27 @@ function LeavePolicyPage() {
     try {
       const res = await api.get("/leave/policy");
       setData(res.data);
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      toast.error(
+        error.response.data.message || "Failed to fetch leave policy"
+      );
     }
   };
 
   const onSubmit = async (values: LeavePolicyValueForm) => {
     form.clearErrors("root.serverError");
     try {
-      const res = await api.patch("/leave/policy", values);
+      await api.patch("/leave/policy", values);
       toast.success("Submitted values");
-      console.log("Submitted values:", res);
-    } catch (error) {
+      fetchLeavePolicy();
+    } catch (error: any) {
       form.setError("root.serverError", {
         type: "manual",
         message: "Failed to update device credentials.",
       });
+      toast.error(
+        error.response.data.message || "Failed to update leave policy"
+      );
     }
   };
 

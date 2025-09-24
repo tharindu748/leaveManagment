@@ -4,7 +4,7 @@ import type { OutletContextType } from "@/layouts/main-layout";
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
 import AdminCalendar from "../components/admin-calendar";
-import { DataTable, DataTable3 } from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
 import {
   leaveManageColumns,
   type LeaveRequest,
@@ -12,6 +12,7 @@ import {
 import api from "@/api/axios";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 function LeaveManagementPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
@@ -25,8 +26,10 @@ function LeaveManagementPage() {
       const res = await api.get(`/leave/requests`);
       setData(res.data);
       console.log(res.data);
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to fetch leave requests"
+      );
     }
   };
 
@@ -36,10 +39,12 @@ function LeaveManagementPage() {
         requestId,
         approvedBy: currentUserId,
       });
-      // refresh list after approving
       fetchLeaveRequest();
-    } catch (error) {
-      console.error("Error approving request:", error);
+      toast.success("Request approved successfully");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to approve request"
+      );
     }
   };
 
@@ -49,10 +54,10 @@ function LeaveManagementPage() {
         requestId,
         approvedBy: currentUserId,
       });
-      // refresh list after approving
       fetchLeaveRequest();
-    } catch (error) {
-      console.error("Error approving request:", error);
+      toast.success("Request cancelled successfully");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to cancel request");
     }
   };
 

@@ -8,6 +8,7 @@ import { useOutletContext } from "react-router";
 import api from "@/api/axios";
 import { columns, type Employee } from "../components/columns";
 import EditUserDialog from "../components/edit-user-dialog";
+import { toast } from "sonner";
 
 export type User = {
   id: string;
@@ -29,8 +30,8 @@ function UsersPage1() {
     try {
       const res = await api.get(`/users`);
       setData(res.data);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      toast.error(error.response.data.message || "Failed to fetch users");
     }
   };
 
@@ -38,24 +39,29 @@ function UsersPage1() {
     try {
       const res = await api.get("/device/auth-status");
       setDeviceBlock(res.data.blocked);
-    } catch (error) {
-      console.log(error);
+      console.log(res.data.blocked, "blocked");
+    } catch (error: any) {
+      toast.error(
+        error.response.data.message || "Failed to check device connection"
+      );
     }
   };
 
   useEffect(() => {
+    checkDeviceConnection();
     const time = setInterval(() => {
       checkDeviceConnection();
     }, 5000);
     return () => clearInterval(time);
-  }, []);
+  });
 
   const syncUsers = async () => {
     try {
       await api.post(`/device/sync-users`);
       fetchUsers();
-    } catch (error) {
-      console.error(error);
+      toast.success("Users synced successfully");
+    } catch (error: any) {
+      toast.error(error.response.data.message || "Users synced successfully");
     }
   };
 
@@ -79,7 +85,12 @@ function UsersPage1() {
 
       <div className="rounded-lg border p-6">
         <div className="flex items-center space-x-4 mt-3">
-          <Button onClick={syncUsers} type="button" className="bg-green-600">
+          <Button
+            onClick={syncUsers}
+            type="button"
+            className="bg-green-600"
+            disabled={deviceBlock}
+          >
             Sync Users
           </Button>
           <h2 className="font-semibold">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/api/axios";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 export type LeaveType = "ANNUAL" | "CASUAL";
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -160,10 +161,10 @@ export function useLeave() {
       setLeaves(next);
       setError(null);
       console.log("Normalized leaves:", next);
-    } catch (err) {
+    } catch (err: any) {
       setError(err);
       setLeaves(EMPTY);
-      console.log(err);
+      toast.error(err?.response?.data?.message || "Failed to fetch leaves");
     } finally {
       setLoading(false);
     }

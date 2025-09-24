@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 function AddManualPunchDialog({
   open,
@@ -82,8 +83,10 @@ function AddManualPunchDialog({
       const res = await api.get(`/users/${encodeURIComponent(employeeId)}`);
       const name = res?.data?.name ?? "";
       form.setValue("name", name, { shouldValidate: true });
-    } catch (error) {
-      console.error("Failed to fetch employee name", error);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to fetch employee name"
+      );
       form.setValue("name", "");
     } finally {
       setLoadingName(false);
@@ -125,12 +128,14 @@ function AddManualPunchDialog({
         time: new Date().toTimeString().slice(0, 5),
         source: "manual",
       });
-    } catch (error) {
+      toast.success("Punch saved successfully");
+    } catch (error: any) {
       console.error(error);
       form.setError("root.serverError", {
         type: "server",
         message: "Failed to save punch",
       });
+      toast.error(error?.response?.data?.message || "Failed to save punch");
     }
   }
 

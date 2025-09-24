@@ -276,10 +276,6 @@ export class DeviceService implements OnModuleDestroy {
       });
 
       if (res.status === 401) {
-        // await this.handleAuthError(
-        //   new UnauthorizedException('Device auth failed'),
-        // );
-        // return;
         await this.deviceConfig.markAuthFailure();
         console.warn(
           'Device authentication failed - marking failure and blocking future attempts',
@@ -293,11 +289,13 @@ export class DeviceService implements OnModuleDestroy {
       }
 
       data = await res.json();
-      // Clear auth failures on successful request
       await this.deviceConfig.clearAuthFailure();
     } catch (e: any) {
-      if (e.status === 401 || e.statusCode === 401) {
-        // await this.handleAuthError(e);
+      if (
+        e.status === 401 ||
+        e.statusCode === 401 ||
+        e.cause?.code === 'UND_ERR_CONNECT_TIMEOUT'
+      ) {
         await this.deviceConfig.markAuthFailure();
         console.warn(
           'Device authentication failed - marking failure and blocking future attempts',

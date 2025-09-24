@@ -49,7 +49,7 @@ export class DeviceConfigService {
         ip: creds.ip,
         username: creds.username,
         passwordEnc,
-        authFailedAt: null, // Reset auth failure status when saving new creds
+        authFailedAt: null,
         authFailureCount: 0,
       },
       create: {
@@ -86,7 +86,6 @@ export class DeviceConfigService {
     });
   }
 
-  // New methods for auth failure tracking
   async markAuthFailure() {
     await this.prisma.deviceConfig.update({
       where: { id: 1 },
@@ -120,17 +119,12 @@ export class DeviceConfigService {
     const timeSinceFailure = now.getTime() - failedAt.getTime();
     const failureCount = row.authFailureCount || 0;
 
-    // Progressive backoff: 1 min, 5 min, 15 min, 30 min, then 60 min
     let waitTimeMs: number;
-    if (failureCount === 1)
-      waitTimeMs = 1 * 60 * 1000; // 1 minute
-    else if (failureCount === 2)
-      waitTimeMs = 5 * 60 * 1000; // 5 minutes
-    else if (failureCount === 3)
-      waitTimeMs = 15 * 60 * 1000; // 15 minutes
-    else if (failureCount === 4)
-      waitTimeMs = 30 * 60 * 1000; // 30 minutes
-    else waitTimeMs = 60 * 60 * 1000; // 1 hour for 5+ failures
+    if (failureCount === 1) waitTimeMs = 1 * 60 * 1000;
+    else if (failureCount === 2) waitTimeMs = 5 * 60 * 1000;
+    else if (failureCount === 3) waitTimeMs = 15 * 60 * 1000;
+    else if (failureCount === 4) waitTimeMs = 30 * 60 * 1000;
+    else waitTimeMs = 60 * 60 * 1000;
 
     if (timeSinceFailure < waitTimeMs) {
       const remainingWaitTime = Math.ceil(
@@ -138,7 +132,7 @@ export class DeviceConfigService {
       );
       return {
         blocked: true,
-        reason: `Device authentication blocked due to ${failureCount} consecutive failures. Wait ${Math.ceil(remainingWaitTime / 60)} minutes.`,
+        reason: `Check Device Credentials or Connection`,
         waitTime: remainingWaitTime,
       };
     }

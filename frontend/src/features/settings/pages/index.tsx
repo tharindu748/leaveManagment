@@ -43,16 +43,15 @@ function DeviceConfigPage() {
   const onSubmit = async (values: CredentialsFormValues) => {
     form.clearErrors("root.serverError");
     try {
-      const res = await api.post("/device/credentials", values);
+      await api.post("/device/credentials", values);
       toast.success("Submitted values");
-      console.log("Submitted values:", res);
-    } catch (error) {
+    } catch (error: any) {
       form.setError("root.serverError", {
         type: "manual",
         message: "Failed to update device credentials.",
       });
       const message = "Failed to update device credentials.";
-      toast.error(message);
+      toast.error(error.response.data.message || message);
     }
   };
 

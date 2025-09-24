@@ -150,6 +150,7 @@ function PunchesPage() {
   };
 
   useEffect(() => {
+    checkDeviceConnection();
     const time = setInterval(() => {
       checkDeviceConnection();
     }, 5000);
@@ -279,7 +280,7 @@ function PunchesPage() {
                 onClick={() => startPolling()}
                 type="button"
                 className="bg-green-600"
-                disabled={isPolling}
+                disabled={isPolling || deviceBlock}
               >
                 Start Polling
               </Button>

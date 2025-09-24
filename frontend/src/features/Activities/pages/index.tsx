@@ -7,6 +7,7 @@ import PageHeader from "@/components/page-header/wrapper";
 import PageHeaderTitle from "@/components/page-header/title";
 import api from "@/api/axios";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 function ActivityPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
@@ -20,8 +21,8 @@ function ActivityPage() {
       const res = await api.get(`/attendance/recalc-all-days/${employeeId}`);
       setData(res.data);
       console.log(res.data);
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to fetch activity");
     }
   };
 

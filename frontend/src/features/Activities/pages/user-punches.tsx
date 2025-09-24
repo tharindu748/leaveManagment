@@ -44,6 +44,7 @@ import {
   type Punches,
 } from "../components/table/user-punch-columns";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 const filterSchema = z.object({
   employeeId: z.string().min(1, "Employee ID is required"),
@@ -107,11 +108,12 @@ function UserPunchesPage() {
 
       const res = await api.get(`/punches/${query}`);
       setData(res.data);
-    } catch (err: any) {
+    } catch (error: any) {
       form.setError("root.serverError", {
         type: "server",
         message: "Failed to fetch punches",
       });
+      toast.error(error?.response?.data?.message || "Failed to fetch punches");
     }
   };
 
@@ -121,8 +123,8 @@ function UserPunchesPage() {
         `/punches/latest?employeeId=${user?.employeeId}`
       );
       setData(res.data);
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to fetch punches");
     }
   };
 

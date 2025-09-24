@@ -9,6 +9,7 @@ import { useOutletContext } from "react-router";
 import api from "@/api/axios";
 import Calendar from "../components/calendar";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 type DayDuration = "FULL" | "MORNING" | "AFTERNOON";
 
@@ -103,31 +104,39 @@ const CalendarLeave: React.FC = () => {
       dates: datesPayload,
     };
 
-    const res = await api.post("/leave/request", body);
+    try {
+      const res = await api.post("/leave/request", body);
 
-    // Optimistic update
-    const newLeaves = dates.map((d) => {
-      const key = formatDate(d);
-      const duration = durationsMap[key] ?? "FULL";
-      const isHalfDay = duration !== "FULL";
-      return {
-        id: Date.now() + Math.random(),
-        date: key,
-        type,
-        status: "PENDING" as LeaveStatus,
-        isHalfDay,
-      };
-    });
+      const newLeaves = dates.map((d) => {
+        const key = formatDate(d);
+        const duration = durationsMap[key] ?? "FULL";
+        const isHalfDay = duration !== "FULL";
+        return {
+          id: Date.now() + Math.random(),
+          date: key,
+          type,
+          status: "PENDING" as LeaveStatus,
+          isHalfDay,
+        };
+      });
 
-    const deduction = dates.reduce((sum, d) => {
-      const key = formatDate(d);
-      const isHalfDay = durationsMap[key] !== "FULL";
-      return sum + (isHalfDay ? 0.5 : 1);
-    }, 0);
+      const deduction = dates.reduce((sum, d) => {
+        const key = formatDate(d);
+        const isHalfDay = durationsMap[key] !== "FULL";
+        return sum + (isHalfDay ? 0.5 : 1);
+      }, 0);
 
-    applyLeave(newLeaves, type, deduction);
+      applyLeave(newLeaves, type, deduction);
 
-    return res.data;
+      toast.success("Leave request submitted successfully");
+      return res.data;
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to submit leave request"
+      );
+      setSelectedDates([]);
+      setDayDurations({});
+    }
   };
 
   // --- Modal apply (single date) ---

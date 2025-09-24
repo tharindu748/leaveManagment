@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 import api from "@/api/axios";
+import { toast } from "sonner";
 
 function TimeConfigPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
@@ -52,7 +53,6 @@ function TimeConfigPage() {
     try {
       const res = await api.get("/attendance/config");
       const config = res.data;
-      console.log("Fetched config:", JSON.stringify(config, null, 2));
 
       form.reset({
         workStart: formatTime(config.workStart),
@@ -60,8 +60,8 @@ function TimeConfigPage() {
         otEnd: formatTime(config.otEnd),
         earlyStart: formatTime(config.earlyStart),
       });
-    } catch (error) {
-      console.error("Failed to fetch config:", error);
+    } catch (error: any) {
+      toast.error(error.response.data.message || "Failed to fetch config");
     }
   };
 
@@ -69,15 +69,16 @@ function TimeConfigPage() {
     console.log("Submitting values:", values);
     form.clearErrors("root.serverError");
     try {
-      const res = await api.patch("/attendance/config", values);
-      await fetchConfig(); // Re-fetch after update
-      console.log("API response:", res.data);
-    } catch (error) {
+      await api.patch("/attendance/config", values);
+      fetchConfig();
+      toast.success("Submitted values");
+    } catch (error: any) {
       console.error("Submission error:", error);
       form.setError("root.serverError", {
         type: "manual",
         message: "Failed to update time configuration.",
       });
+      toast.error(error.response.data.message || "Failed to update config");
     }
   };
 
