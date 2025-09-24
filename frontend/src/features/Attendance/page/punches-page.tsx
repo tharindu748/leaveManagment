@@ -151,11 +151,13 @@ function PunchesPage() {
 
   useEffect(() => {
     checkDeviceConnection();
+    if (isPolling && !deviceBlock) fetchPunches();
     const time = setInterval(() => {
       checkDeviceConnection();
+      if (isPolling && !deviceBlock) fetchPunches();
     }, 5000);
     return () => clearInterval(time);
-  }, []);
+  });
 
   const startPolling = async () => {
     try {
@@ -189,7 +191,6 @@ function PunchesPage() {
 
   useEffect(() => {
     setBreadcrumb(["Attendance", "Punches"]);
-    fetchPunches();
   }, []);
 
   const today = new Date();
