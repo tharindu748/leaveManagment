@@ -11,6 +11,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Toaster } from "@/components/ui/sonner";
 
 export type OutletContextType = {
   setBreadcrumb: Dispatch<SetStateAction<string[]>>;
@@ -53,6 +54,7 @@ const MainLayout = () => {
 
           <div className="p-5">
             <Outlet context={{ setBreadcrumb }} />
+            <Toaster richColors />
           </div>
         </main>
       </SidebarProvider>

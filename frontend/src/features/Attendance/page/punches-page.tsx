@@ -176,6 +176,16 @@ function PunchesPage() {
     }
   };
 
+  const handleDelete = async (requestId: number) => {
+    try {
+      await api.put(`/punches/${requestId}`);
+      // refresh list after approving
+      fetchPunches();
+    } catch (error) {
+      console.error("Error approving request:", error);
+    }
+  };
+
   useEffect(() => {
     setBreadcrumb(["Attendance", "Punches"]);
     fetchPunches();
@@ -466,7 +476,7 @@ function PunchesPage() {
           </Form>
 
           <div className="mt-8">
-            <DataTable3 columns={columns} data={data} />
+            <DataTable3 columns={columns(handleDelete)} data={data} />
           </div>
         </div>
       </div>

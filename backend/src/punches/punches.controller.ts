@@ -8,6 +8,7 @@ import {
   BadRequestException,
   ParseIntPipe,
   Delete,
+  Put,
 } from '@nestjs/common';
 import { PunchesService } from './punches.service';
 import { CreatePunchDto } from './dto/punches.dto';
@@ -63,8 +64,8 @@ export class PunchesController {
     return this.punchesService.getPunches({ employeeId, name, eventTime });
   }
 
-  @Delete(':id')
+  @Put(':id')
   async deletePunch(@Param('id', ParseIntPipe) id: number) {
-    return this.punchesService.detelePunch(id);
+    return this.punchesService.deletePunch(id);
   }
 }

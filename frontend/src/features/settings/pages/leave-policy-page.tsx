@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 function LeavePolicyPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
@@ -60,6 +61,7 @@ function LeavePolicyPage() {
     form.clearErrors("root.serverError");
     try {
       const res = await api.patch("/leave/policy", values);
+      toast.success("Submitted values");
       console.log("Submitted values:", res);
     } catch (error) {
       form.setError("root.serverError", {

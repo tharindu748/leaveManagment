@@ -1,6 +1,16 @@
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { type ColumnDef } from "@tanstack/react-table";
+import { MoreHorizontal } from "lucide-react";
 
 export type Punches = {
+  id: number;
   Date: string;
   StartTime: string;
   LastOut: string;
@@ -12,7 +22,9 @@ export type Punches = {
   };
 };
 
-export const columns: ColumnDef<Punches>[] = [
+export const columns = (
+  handleDelete: (id: number) => void
+): ColumnDef<Punches>[] => [
   {
     accessorKey: "employeeId",
     header: "Employee Id",
@@ -68,5 +80,27 @@ export const columns: ColumnDef<Punches>[] = [
         {row.getValue("note") as string}
       </div>
     ),
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const request = row.original;
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0 float-right">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleDelete(request.id)}>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+    enableHiding: false,
   },
 ];

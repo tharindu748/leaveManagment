@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 import api from "@/api/axios";
 
@@ -43,12 +44,15 @@ function DeviceConfigPage() {
     form.clearErrors("root.serverError");
     try {
       const res = await api.post("/device/credentials", values);
+      toast.success("Submitted values");
       console.log("Submitted values:", res);
     } catch (error) {
       form.setError("root.serverError", {
         type: "manual",
         message: "Failed to update device credentials.",
       });
+      const message = "Failed to update device credentials.";
+      toast.error(message);
     }
   };
 

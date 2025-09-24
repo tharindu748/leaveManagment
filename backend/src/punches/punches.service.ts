@@ -21,10 +21,15 @@ export class PunchesService {
 
   async getLatestPunches(limit?: number, employeeId?: string) {
     return this.prisma.punch.findMany({
-      where: employeeId ? { employeeId } : undefined,
+      where: {
+        ...(employeeId ? { employeeId } : {}),
+        deletedAt: null,
+      },
       orderBy: [{ correctEventTime: 'desc' }, { eventTime: 'desc' }],
       ...(typeof limit === 'number' ? { take: limit } : {}),
-      include: { user: { select: { name: true } } },
+      include: {
+        user: { select: { name: true } },
+      },
     });
   }
 
@@ -121,6 +126,7 @@ export class PunchesService {
             name: { contains: name, mode: 'insensitive' },
           },
         }),
+        deletedAt: null,
         ...(dateFilter && { correctEventTime: dateFilter }),
       };
       return await this.prisma.punch.findMany({
@@ -139,9 +145,10 @@ export class PunchesService {
     }
   }
 
-  async detelePunch(id: number) {
+  async deletePunch(id: number) {
     try {
-      const punche = await this.prisma.punch.delete({
+      const punche = await this.prisma.punch.update({
+        data: { deletedAt: new Date() },
         where: { id },
       });
       return punche;

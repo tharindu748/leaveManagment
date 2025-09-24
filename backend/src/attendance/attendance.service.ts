@@ -165,6 +165,7 @@ export class AttendanceService {
       where: {
         employeeId,
         eventTime: { gte: dayStart, lte: dayEnd },
+        deletedAt: null,
       },
       orderBy: { eventTime: 'asc' },
     });
