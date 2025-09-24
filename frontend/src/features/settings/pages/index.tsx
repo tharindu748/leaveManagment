@@ -1,5 +1,5 @@
 import type { OutletContextType } from "@/layouts/main-layout";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router";
 import {
   Form,
@@ -22,6 +22,13 @@ import api from "@/api/axios";
 
 function DeviceConfigPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
+  const [deviceBlock, setDeviceBlock] = useState(false);
+
+  const deviceBlockRef = useRef(deviceBlock);
+
+  useEffect(() => {
+    deviceBlockRef.current = deviceBlock;
+  }, [deviceBlock]);
 
   const credentialsSchema = z.object({
     ip: z.string().min(1, "Ip address is required"),
@@ -44,6 +51,7 @@ function DeviceConfigPage() {
     form.clearErrors("root.serverError");
     try {
       await api.post("/device/credentials", values);
+      checkDeviceConnection();
       toast.success("Submitted values");
     } catch (error: any) {
       form.setError("root.serverError", {
@@ -54,6 +62,28 @@ function DeviceConfigPage() {
       toast.error(error.response.data.message || message);
     }
   };
+
+  const checkDeviceConnection = async () => {
+    try {
+      const res = await api.get("/device/auth-status");
+      setDeviceBlock(res.data.blocked);
+      console.log(res.data.blocked, "blocked");
+    } catch (error: any) {
+      toast.error(
+        error.response.data.message || "Failed to check device connection"
+      );
+    }
+  };
+
+  useEffect(() => {
+    checkDeviceConnection();
+
+    const time = setInterval(() => {
+      checkDeviceConnection();
+    }, 5000);
+
+    return () => clearInterval(time);
+  }, []);
 
   useEffect(() => {
     setBreadcrumb(["Settings", "Device Configuration"]);
@@ -68,6 +98,24 @@ function DeviceConfigPage() {
       </PageHeader>
 
       <div className="rounded-lg border p-6">
+        <div className="rounded-lg border p-6 mb-3">
+          <div className="flex items-center justify-between space-x-4">
+            <div className="flex gap-2">
+              <h2 className="font-semibold">
+                Device Connection:{" "}
+                <span
+                  className={`${
+                    deviceBlock
+                      ? "bg-red-200 border-red-600 text-red-600"
+                      : "bg-green-200 border-green-600 text-green-600 "
+                  }   border font-light pt-1 pb-2 px-3 rounded-sm`}
+                >
+                  {deviceBlock ? "Disconnected " : "Connected"}{" "}
+                </span>
+              </h2>
+            </div>
+          </div>
+        </div>
         <div className="rounded-lg border p-6">
           <h2 className="mb-4 font-semibold">Device Credentials</h2>
           <Form {...form}>

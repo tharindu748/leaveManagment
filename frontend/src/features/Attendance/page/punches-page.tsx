@@ -182,7 +182,7 @@ function PunchesPage() {
     }, 5000);
 
     return () => clearInterval(time);
-  }, []); // Now safe with empty deps
+  }, []);
 
   const startPolling = async () => {
     try {
@@ -207,7 +207,6 @@ function PunchesPage() {
   const handleDelete = async (requestId: number) => {
     try {
       await api.put(`/punches/${requestId}`);
-      // refresh list after approving
       fetchPunches();
     } catch (error) {
       console.error("Error approving request:", error);

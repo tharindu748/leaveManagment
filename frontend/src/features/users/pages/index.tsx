@@ -56,16 +56,14 @@ function UsersPage1() {
   };
 
   useEffect(() => {
-    // Initial check
     checkDeviceConnection();
 
-    // Set up interval once on mount
     const time = setInterval(() => {
       checkDeviceConnection();
     }, 5000);
 
     return () => clearInterval(time);
-  }, []); // Added empty deps to run only on mount
+  }, []);
 
   const syncUsers = async () => {
     try {
