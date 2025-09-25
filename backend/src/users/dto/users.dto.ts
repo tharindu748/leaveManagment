@@ -69,4 +69,8 @@ export class UpdateRegUserDto {
   @IsOptional()
   @IsString()
   jobPosition?: string;
+
+  @IsOptional()
+  @IsString()
+  imagePath?: string;
 }

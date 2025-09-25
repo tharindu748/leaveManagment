@@ -286,6 +286,7 @@ export class AnalyticService {
         jobPosition: true,
         epfNo: true,
         createdAt: true,
+        imagePath: true,
         cardNumber: true,
         leaveRequests: {
           where: {
@@ -369,7 +370,7 @@ export class AnalyticService {
       email: user.email,
       epfNo: user.epfNo,
       position: user.jobPosition,
-      image: '/api/placeholder/120/120',
+      image: user.imagePath,
       workedSinceJoining,
       totalLeaveCount,
       leaveTaken,

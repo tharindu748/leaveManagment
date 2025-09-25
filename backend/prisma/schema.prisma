@@ -23,6 +23,7 @@ model User {
   epfNo              String?              @map("epfNo")
   nic                String?              @map("NIC")
   jobPosition        String?              @map("jobPosition")
+  imagePath          String?
   active             Boolean              @default(true)
 
   leaveRequests    Leave_request[] @relation("UserLeaveRequests")

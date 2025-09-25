@@ -55,6 +55,11 @@ const EmployeeDashboard: React.FC = () => {
     fetchData();
   }, []);
 
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+
+  const imageUrl = data?.image ? `${API_BASE_URL}${data.image}` : undefined;
+
   return (
     <>
       <PageHeader>
@@ -68,9 +73,14 @@ const EmployeeDashboard: React.FC = () => {
             {/* Employee Profile Section */}
             <div className="rounded-lg p-6 border">
               <div className="flex flex-col items-center mb-6">
-                <div className="w-24 h-24 rounded-lg flex items-center justify-center mb-4 border ">
-                  <User className="w-12 h-12 text-gray-500" />
-                  <span className="text-xs text-red-500 ml-1">Image</span>
+                <div className="w-24 h-24 rounded-full flex items-center justify-center mb-4 border ">
+                  {imageUrl && (
+                    <img
+                      src={imageUrl}
+                      alt={data?.name ?? "Profile image"}
+                      className="w-24 h-24 rounded-full object-cover"
+                    />
+                  )}
                 </div>
 
                 <div className="w-full space-y-3">
