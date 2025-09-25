@@ -1,4 +1,10 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { AnalyticService } from './analytic.service';
 
 function toISODateOnly(date: Date) {
@@ -66,5 +72,16 @@ export class AnalyticController {
   async getSummary(@Query('date', new OptionalDateParamPipe()) date?: string) {
     const dateStr = date ?? toISODateOnly(new Date());
     return this.analyticService.getDailySummary(dateStr);
+  }
+
+  @Get(':employeeId/dashboard')
+  async getEmployeeDashboardData(@Param('employeeId') employeeId: string) {
+    const dashboardData =
+      await this.analyticService.getEmployeeDashboardData(employeeId);
+
+    if (!dashboardData) {
+      throw new NotFoundException('Employee not found');
+    }
+    return dashboardData;
   }
 }

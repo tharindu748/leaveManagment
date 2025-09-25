@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { id } from 'date-fns/locale';
 import { DatabaseService } from 'src/database/database.service';
 
 type SummaryParams = {
@@ -270,5 +271,113 @@ export class AnalyticService {
     const d = new Date(`${dateStr}T00:00:00.000Z`);
     d.setUTCHours(hours, minutes, seconds, ms);
     return d;
+  }
+
+  async getEmployeeDashboardData(employeeId: string) {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const user = await this.database.user.findUnique({
+      where: { employeeId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        jobPosition: true,
+        epfNo: true,
+        createdAt: true,
+        cardNumber: true,
+        leaveRequests: {
+          where: {
+            status: 'APPROVED',
+          },
+          select: {
+            leaveType: true,
+            dates: {
+              select: {
+                isHalfDay: true,
+              },
+            },
+          },
+        },
+        leaveBalances: {
+          where: { year: now.getFullYear() },
+          select: {
+            leaveType: true,
+            balance: true,
+          },
+        },
+        attendanceDays: {
+          where: {
+            workDate: {
+              gte: startOfMonth,
+              lt: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+            },
+          },
+          select: {
+            workedSeconds: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const workedSinceJoining = Math.floor(
+      (now.getTime() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    const leaveTaken = user.leaveRequests.reduce(
+      (acc, request) => {
+        const leaveDays = request.dates.reduce(
+          (sum, date) => sum + (date.isHalfDay ? 0.5 : 1),
+          0,
+        );
+        if (request.leaveType === 'ANNUAL') {
+          acc.annual += leaveDays;
+        } else if (request.leaveType === 'CASUAL') {
+          acc.sick += leaveDays;
+        }
+        return acc;
+      },
+      { sick: 0, annual: 0 },
+    );
+
+    const leaveBalances = user.leaveBalances.reduce(
+      (acc, balance) => {
+        acc[balance.leaveType.toLocaleLowerCase()] = balance.balance;
+        return acc;
+      },
+      { annual: 0, casual: 0 },
+    );
+
+    const totalLeaveCount = leaveBalances.annual + leaveBalances.casual;
+    const remainingHolidays =
+      totalLeaveCount - (leaveTaken.annual + leaveTaken.sick);
+
+    const totalWorkedSeconds = user.attendanceDays.reduce(
+      (acc, day) => acc + day.workedSeconds,
+      0,
+    );
+    const workHoursThisMonth = Math.round(totalWorkedSeconds / 3600);
+
+    const employeeData = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      epfNo: user.epfNo,
+      position: user.jobPosition,
+      image: '/api/placeholder/120/120',
+      workedSinceJoining,
+      totalLeaveCount,
+      leaveTaken,
+      leaveBalances,
+      remainingHolidays,
+      workHoursThisMonth,
+    };
+
+    return employeeData;
   }
 }
