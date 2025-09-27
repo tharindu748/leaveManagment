@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable2 } from "@/components/data-table";
 import { formatSeconds, pad } from "../utils/time";
