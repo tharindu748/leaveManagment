@@ -306,8 +306,8 @@ const AdminCalendar = ({
   onOpenChange,
   onDayClick,
   leaves = mockLeaves,
-  selectedDates = [],
-}: CalendarProps) => {
+}: // selectedDates = [],
+CalendarProps) => {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState<Date>(
     new Date(today.getFullYear(), today.getMonth(), 1)

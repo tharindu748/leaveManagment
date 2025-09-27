@@ -32,7 +32,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, X } from "lucide-react";
 import {
   format,
-  addDays,
+  // addDays,
   startOfDay,
   endOfDay,
   startOfMonth,
@@ -40,7 +40,7 @@ import {
   subDays,
   startOfWeek,
   endOfWeek,
-  set,
+  // set,
 } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import AddManualPunchDialog from "../components/add-manual-punch-dialog";
