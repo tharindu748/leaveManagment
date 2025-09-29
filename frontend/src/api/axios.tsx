@@ -2,7 +2,7 @@ import axios, { AxiosError } from "axios";
 import { useAuth } from "@/context/auth-context";
 
 const api = axios.create({
-  baseURL: "http://localhost:3000",
+  baseURL: process.env.VITE_API_BASE_URL||"http://localhost:3000",
   withCredentials: true,
 });
 
