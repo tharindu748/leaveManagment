@@ -27,39 +27,39 @@ interface User {
 }
 
 // Mock data
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    email: "john@company.com",
-    department: "Engineering",
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    email: "sarah@company.com",
-    department: "Marketing",
-  },
-  {
-    id: "3",
-    name: "Mike Wilson",
-    email: "mike@company.com",
-    department: "Sales",
-  },
-  { id: "4", name: "Emma Davis", email: "emma@company.com", department: "HR" },
-  {
-    id: "5",
-    name: "Alex Brown",
-    email: "alex@company.com",
-    department: "Engineering",
-  },
-  {
-    id: "6",
-    name: "Lisa Garcia",
-    email: "lisa@company.com",
-    department: "Finance",
-  },
-];
+// const mockUsers: User[] = [
+//   {
+//     id: "1",
+//     name: "John Smith",
+//     email: "john@company.com",
+//     department: "Engineering",
+//   },
+//   {
+//     id: "2",
+//     name: "Sarah Johnson",
+//     email: "sarah@company.com",
+//     department: "Marketing",
+//   },
+//   {
+//     id: "3",
+//     name: "Mike Wilson",
+//     email: "mike@company.com",
+//     department: "Sales",
+//   },
+//   { id: "4", name: "Emma Davis", email: "emma@company.com", department: "HR" },
+//   {
+//     id: "5",
+//     name: "Alex Brown",
+//     email: "alex@company.com",
+//     department: "Engineering",
+//   },
+//   {
+//     id: "6",
+//     name: "Lisa Garcia",
+//     email: "lisa@company.com",
+//     department: "Finance",
+//   },
+// ];
 
 const mockLeaves: Leave[] = [
   {
@@ -306,7 +306,7 @@ const AdminCalendar = ({
   onOpenChange,
   onDayClick,
   leaves = mockLeaves,
-  selectedDates = [],
+  // selectedDates = [],
 }: CalendarProps) => {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState<Date>(
