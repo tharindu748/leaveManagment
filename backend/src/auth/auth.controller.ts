@@ -16,24 +16,31 @@ import { PassportLocalGuard } from './guards/passport-local.guard';
 import { RegisterDto } from './dto/register.dto';
 import { PassportJwtAuthGuard } from './guards/passport-jwt.guard';
 import { RefreshTokenGuard } from './guards/passport-jwt-refresh.guard';
-import { type Response } from 'express';
+import type { Response, CookieOptions } from 'express';
+
+const isProd = process.env.NODE_ENV === 'production';
+
+const refreshCookieOptions: CookieOptions = {
+  httpOnly: true,
+  secure: isProd, // boolean ✅
+  sameSite: isProd ? 'none' : 'lax', // 'none' requires secure: true
+  // path: '/',                                // optional
+  // maxAge: 7 * 24 * 60 * 60 * 1000,          // optional (e.g., 7 days)
+};
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  @UsePipes(ValidationPipe)
+  @UsePipes(new ValidationPipe())
   async register(
     @Body() registerDto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
   ) {
     const { refreshToken, ...result } =
       await this.authService.register(registerDto);
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: false,
-    });
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions);
     return result;
   }
 
@@ -42,10 +49,7 @@ export class AuthController {
   @Post('login')
   async login(@Request() req, @Res({ passthrough: true }) res: Response) {
     const { refreshToken, ...result } = await this.authService.login(req.user);
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: false,
-    });
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions);
     return result;
   }
 
@@ -54,7 +58,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@Request() req, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(req.user['userId']);
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', {
+      ...refreshCookieOptions,
+      maxAge: undefined,
+    });
     return { message: 'Logged out successfully' };
   }
 
@@ -68,10 +75,7 @@ export class AuthController {
     const refreshToken = req.user['refreshToken'];
     const { refreshToken: newRefreshToken, ...result } =
       await this.authService.refreshTokens(userId, refreshToken);
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: false,
-    });
+    res.cookie('refreshToken', newRefreshToken, refreshCookieOptions);
     return result;
   }
 

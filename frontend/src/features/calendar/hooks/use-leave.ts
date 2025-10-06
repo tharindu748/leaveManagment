@@ -52,8 +52,8 @@ type ApiLeaveRequest = {
 const toYMD = (s: string) => (s ?? "").slice(0, 10);
 
 const computeSummary = (
-  _flat: Leave[],
-  _type: LeaveType,
+  flat: Leave[],
+  type: LeaveType,
   used: number,
   pending: number,
   balance: number

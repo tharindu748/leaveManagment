@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import PageHeader from "@/components/page-header/wrapper";
 import PageHeaderTitle from "@/components/page-header/title";
 import { toDateKey, pad } from "../components/utils/time";
 import type { Mode } from "../components/types/types";
 import { useAttendance } from "../components/hooks/useAttendance";
-import Toolbar from "../components/toolbar";
+import Toolbar from "../components/Toolbar";
 import DayTable from "../components/Table/day-table";
 import MonthTable from "../components/Table/month-table";
 import { useOutletContext } from "react-router";

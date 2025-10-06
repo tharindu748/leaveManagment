@@ -10,7 +10,6 @@ import CalendarLeave from "@/features/calendar/pages";
 import ActivityPage from "@/features/Activities/pages";
 import PunchesPage from "@/features/Attendance/page/punches-page";
 import UsersPage1 from "@/features/users/pages";
-import DeviceConfigPage from "@/features/settings/pages";
 import TimeConfigPage from "@/features/settings/pages/time-config-page";
 import LeaveManagementPage from "@/features/Attendance/page/leave-manage-page";
 import UserPunchesPage from "@/features/Activities/pages/user-punches";
@@ -39,7 +38,6 @@ const AppRoutes = () => {
           />
           <Route path="/attendance/times" element={<TimeCalcPage />} />
           <Route path="/users1" element={<UsersPage1 />} />
-          <Route path="/device-config" element={<DeviceConfigPage />} />
           <Route path="/time-config" element={<TimeConfigPage />} />
           <Route path="/leave-policy" element={<LeavePolicyPage />} />
         </Route>

@@ -111,11 +111,6 @@ const items: MenuItem[] = [
     visibleFor: "admin",
     items: [
       {
-        title: "Device Configuration",
-        url: "/device-config",
-        visibleFor: "admin",
-      },
-      {
         title: "Time Configuration",
         url: "/time-config",
         visibleFor: "admin",

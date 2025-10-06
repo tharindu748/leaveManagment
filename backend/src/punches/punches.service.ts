@@ -67,7 +67,6 @@ export class PunchesService {
       return punch;
     } catch (e: any) {
       if (e.code === 'P2002') {
-        // duplicate (unique: employeeId, eventTime, direction, source). Ignore, like INSERT IGNORE.
         return null;
       }
       throw e;

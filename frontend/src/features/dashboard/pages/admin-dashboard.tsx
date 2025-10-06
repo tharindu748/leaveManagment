@@ -20,17 +20,17 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 
-// interface Employee {
-//   id: number;
-//   name: string;
-//   avatar: string;
-//   department?: string;
-//   late?: number;
-//   workingDays?: number;
-//   invoiceNumber?: string;
-//   time?: string;
-//   status?: string;
-// }
+interface Employee {
+  id: number;
+  name: string;
+  avatar: string;
+  department?: string;
+  late?: number;
+  workingDays?: number;
+  invoiceNumber?: string;
+  time?: string;
+  status?: string;
+}
 
 type StatCardProps = {
   title: string;

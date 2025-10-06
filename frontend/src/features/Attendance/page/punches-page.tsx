@@ -32,7 +32,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, X } from "lucide-react";
 import {
   format,
-  // addDays,
+  addDays,
   startOfDay,
   endOfDay,
   startOfMonth,
@@ -40,7 +40,7 @@ import {
   subDays,
   startOfWeek,
   endOfWeek,
-  // set,
+  set,
 } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import AddManualPunchDialog from "../components/add-manual-punch-dialog";
@@ -87,24 +87,9 @@ function PunchesPage() {
   const { setBreadcrumb } = useOutletContext<OutletContextType>();
   const [data, setData] = useState<Punches[]>([]);
   const [open, setOpen] = useState(false);
-  const [deviceBlock, setDeviceBlock] = useState(false);
-  const [isPolling, setIsPolling] = useState<boolean>(false);
   const [addPunchToggle, setAddPunchToggle] = useState(false);
   const isMobile = useIsMobile();
   const currentUserId = user?.id;
-
-  // Add refs for states used in async callbacks (to avoid stale closures)
-  const isPollingRef = useRef(isPolling);
-  const deviceBlockRef = useRef(deviceBlock);
-
-  // Update refs when states change
-  useEffect(() => {
-    isPollingRef.current = isPolling;
-  }, [isPolling]);
-
-  useEffect(() => {
-    deviceBlockRef.current = deviceBlock;
-  }, [deviceBlock]);
 
   const form = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
@@ -154,55 +139,9 @@ function PunchesPage() {
     }
   };
 
-  const checkDeviceConnection = async () => {
-    try {
-      const res = await api.get("/device/auth-status");
-      setDeviceBlock(res.data.blocked);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   useEffect(() => {
-    // Initial check + conditional fetch (chained to avoid race conditions)
-    checkDeviceConnection().then(() => {
-      // Initial fetch ignores isPolling (matches your original code)
-      if (!deviceBlockRef.current) {
-        fetchPunches();
-      }
-    });
-
-    // Set up interval once on mount (always runs check; conditional fetch)
-    const time = setInterval(() => {
-      checkDeviceConnection().then(() => {
-        if (isPollingRef.current && !deviceBlockRef.current) {
-          fetchPunches();
-        }
-      });
-    }, 5000);
-
-    return () => clearInterval(time);
+    fetchPunches();
   }, []);
-
-  const startPolling = async () => {
-    try {
-      const res = await api.post(`/device/start-polling`);
-      setIsPolling(true);
-      console.log(res.data);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const stopPolling = async () => {
-    try {
-      const res = await api.post(`/device/stop-polling`);
-      setIsPolling(false);
-      console.log(res.data);
-    } catch (error) {
-      console.log(error);
-    }
-  };
 
   const handleDelete = async (requestId: number) => {
     try {
@@ -272,62 +211,6 @@ function PunchesPage() {
       </PageHeader>
 
       <div className="rounded-lg border p-6">
-        <div className="rounded-lg border p-6 mt-3">
-          <div className="flex items-center justify-between space-x-4 mt-3">
-            <div className="flex gap-2">
-              <h2 className="font-semibold">
-                Device Connection:{" "}
-                <span
-                  className={`${
-                    deviceBlock
-                      ? "bg-red-200 border-red-600 text-red-600"
-                      : "bg-green-200 border-green-600 text-green-600 "
-                  }   border font-light pt-1 pb-2 px-3 rounded-sm`}
-                >
-                  {deviceBlock ? "Disconnected " : "Connected"}{" "}
-                </span>
-              </h2>
-              <h2 className="font-semibold">
-                Status:{" "}
-                <span
-                  className={`${
-                    isPolling
-                      ? "bg-green-200 border-green-600 text-green-600"
-                      : "bg-red-200 border-red-600 text-red-600"
-                  }   border font-light pt-1 pb-2 px-3 rounded-sm`}
-                >
-                  {isPolling ? "Running" : "Stopped"}
-                </span>
-              </h2>
-            </div>
-            <div className="space-x-4">
-              <Button
-                onClick={() => startPolling()}
-                type="button"
-                className="bg-green-600"
-                disabled={isPolling || deviceBlock}
-              >
-                Start Polling
-              </Button>
-              <Button
-                onClick={() => stopPolling()}
-                type="button"
-                className="bg-red-600"
-                disabled={!isPolling}
-              >
-                Stop Polling
-              </Button>
-              <Button
-                onClick={() => fetchPunches()}
-                type="button"
-                className="bg-blue-600"
-                disabled={!isPolling}
-              >
-                Refresh Table
-              </Button>
-            </div>
-          </div>
-        </div>
         <div className="rounded-lg border p-6 mt-3">
           <h2 className="mb-4 font-semibold">Search Punches</h2>
 
